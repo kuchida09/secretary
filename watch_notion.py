@@ -121,20 +121,6 @@ def main():
         print("NOCHANGE")
         return
 
-    # 費用と夜間の歯止め（読了サイン＝利用者の明示操作は例外）
-    is_sign = bool(now.get("sign")) and now.get("sign") != old.get("sign")
-    nowj = jst_now()
-    today = time.strftime("%Y-%m-%d", nowj)
-    try:
-        logp = pathlib.Path(__file__).resolve().parent / "wake_log.txt"
-        wakes_today = sum(1 for ln in logp.read_text(encoding="utf-8").splitlines() if ln.startswith(today)) if logp.exists() else 0
-    except Exception:
-        wakes_today = 0
-    night = nowj.tm_hour >= 23 or nowj.tm_hour < 7
-    if not is_sign and (night or wakes_today >= 60):
-        print("NOCHANGE")  # 朝まで／上限まで待つ（変化は消さずに持ち越す）
-        return
-
     try:
         sp.write_text(json.dumps(now, ensure_ascii=False), encoding="utf-8")
     except Exception:
