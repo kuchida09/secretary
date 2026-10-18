@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-"""読了サイン方式の差分検知（cron の monitor 用）。
+"""秘書ページの「利用者の操作」を検知する（cron の monitor 用）。
 
-- 5分/1分ごとに「✅ 確認サイン」ページを見る。
-- 新しい `読了: ...` の行が増えていれば、その行と現在の状態を出力する → AI が起きる。
-- 増えていなければ `NOCHANGE` とだけ出力 → AI は起きない（消費ゼロ）。
+監視する（利用者が触るものだけ）:
+- ✅ 確認サインの最新「読了:」行
+- 確認・提案の 状態 と コメント
+- タスクの 状態（完了にした等）
+- 改善メモの依頼行（`YYYY-MM-DD HH:MM 端末から:`）
 
-途中で編集している間に判断してしまう事故を防ぐため、**判断の合図は「読了」行だけ**。
+前回と同じなら `NOCHANGE` とだけ出力 → AI は起きない（消費ゼロ）。
+変わったときは、変わった項目と現在の状態を出力 → AI が起きて Discord に報告する。
 """
 import json
 import os
@@ -57,6 +60,8 @@ def txt(v):
         return "".join(x.get("plain_text", "") for x in v["rich_text"])
     if t == "select":
         return (v.get("select") or {}).get("name") or ""
+    if t == "date":
+        return (v.get("date") or {}).get("start") or ""
     return ""
 
 
@@ -73,12 +78,23 @@ def post(h, path, payload):
         return json.loads(r.read())
 
 
-def para_texts(blocks):
-    out = []
-    for b in blocks:
-        if b.get("type") == "paragraph":
-            out.append("".join(x.get("plain_text", "") for x in b["paragraph"]["rich_text"]).strip())
-    return out
+def snapshot(h):
+    snap = {}
+    signs = [t for t in [("".join(x.get("plain_text", "") for x in b["paragraph"]["rich_text"]).strip())
+                         for b in get(h, f"/blocks/{SIGN_PAGE}/children?page_size=100").get("results", [])
+                         if b.get("type") == "paragraph"] if t.startswith("読了:")]
+    snap["sign"] = signs[-1] if signs else ""
+    for row in post(h, f"/data_sources/{REVIEW_DS}/query", {"page_size": 100}).get("results", []):
+        p = row["properties"]
+        snap["r:" + row["id"]] = "|".join([txt(p.get("件名")), txt(p.get("状態")), txt(p.get("コメント"))])
+    for row in post(h, f"/data_sources/{TASKS_DS}/query", {"page_size": 100}).get("results", []):
+        p = row["properties"]
+        snap["t:" + row["id"]] = "|".join([txt(p.get("名前")), txt(p.get("状態")), txt(p.get("完了日"))])
+    reqs = [t for t in [("".join(x.get("plain_text", "") for x in b["paragraph"]["rich_text"]).strip())
+                        for b in get(h, f"/blocks/{MEMO_PAGE}/children?page_size=100").get("results", [])
+                        if b.get("type") == "paragraph"] if t[:4].isdigit()]
+    snap["memo"] = "||".join(reqs)
+    return snap
 
 
 def main():
@@ -88,44 +104,46 @@ def main():
         return
     h = {"Authorization": f"Bearer {key}", "Notion-Version": "2025-09-03", "Content-Type": "application/json"}
 
-    signs = [t for t in para_texts(get(h, f"/blocks/{SIGN_PAGE}/children?page_size=100").get("results", []))
-             if t.startswith("読了:")]
-    latest = signs[-1] if signs else ""
-
+    now = snapshot(h)
     sp = state_path()
-    seen = ""
+    old = {}
     try:
-        seen = json.loads(sp.read_text(encoding="utf-8")).get("sign", "")
+        old = json.loads(sp.read_text(encoding="utf-8"))
     except Exception:
         pass
 
-    if not latest or latest == seen:
+    if old == now:
         print("NOCHANGE")
         return
 
     try:
-        sp.write_text(json.dumps({"sign": latest, "at": time.strftime("%Y-%m-%d %H:%M")}), encoding="utf-8")
+        sp.write_text(json.dumps(now, ensure_ascii=False), encoding="utf-8")
     except Exception:
         pass
 
-    print("SIGN " + latest)
+    print("CHANGED")
+    if now.get("sign") and now.get("sign") != old.get("sign"):
+        print("読了サイン: " + now["sign"])
+    for k in sorted(set(now) | set(old)):
+        if k in ("sign", "memo"):
+            continue
+        if now.get(k) != old.get(k):
+            label = "提案" if k.startswith("r:") else "タスク"
+            print(f"{label}|{k[2:]}|{(old.get(k) or '（新規）')} → {now.get(k)}")
+    if now.get("memo") != old.get("memo"):
+        new_reqs = [r for r in now.get("memo", "").split("||") if r and r not in (old.get("memo") or "")]
+        for r in new_reqs:
+            print("メモ|" + r[:160])
     print("--- いまの状態 ---")
-    for tag, ds in (("提案", REVIEW_DS), ("タスク", TASKS_DS)):
-        rows = post(h, f"/data_sources/{ds}/query", {"page_size": 100}).get("results", [])
-        for row in rows:
-            p = row["properties"]
-            name = txt(p.get("件名") or p.get("名前"))
-            state = txt(p.get("状態"))
-            comment = txt(p.get("コメント"))
-            if tag == "提案" and state in ("対応済み", "見送る") and not comment:
-                continue
-            if tag == "タスク" and state == "完了":
-                continue
-            print(f"{tag}|{name[:34]}|{state}|{comment[:60]}")
-    memos = [t for t in para_texts(get(h, f"/blocks/{MEMO_PAGE}/children?page_size=100").get("results", []))
-             if t[:4].isdigit()]
-    for m in memos[-5:]:
-        print("メモ|" + m[:120])
+    for k, v in sorted(now.items()):
+        if k.startswith("r:"):
+            parts = v.split("|", 2)
+            if len(parts) >= 2 and parts[1] not in ("対応済み", "見送る"):
+                print("提案|" + v[:120])
+        elif k.startswith("t:"):
+            parts = v.split("|", 2)
+            if len(parts) >= 2 and parts[1] != "完了":
+                print("タスク|" + v[:120])
 
 
 if __name__ == "__main__":
