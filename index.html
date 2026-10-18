@@ -50,6 +50,7 @@
   button.act.p{background:var(--accent);border-color:var(--accent);color:#fff}
   button.act.q{background:transparent}
   button.act:disabled{opacity:.45}
+  button.act.done{background:var(--done-soft);border-color:var(--done);color:var(--done);opacity:1}
   .chip{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;background:var(--alt);color:var(--soft);white-space:nowrap}
   .chip.u{background:var(--urgent-soft);color:var(--urgent)}
   .chip.d{background:var(--done-soft);color:var(--done)}
@@ -216,8 +217,6 @@ async function load(){
 
     if(replied){ const rp = $("div","cnow"); rp.textContent = "Hermes の対応: "+replied; card.appendChild(rp); }
 
-    const statusLine = $("div","stat"); card.appendChild(statusLine);
-
     const setState = async (val) => {
       setBusy("反映中…");
       try{
@@ -226,10 +225,8 @@ async function load(){
         if(cm) props["コメント"] = {"rich_text":[{"text":{"content":cm}}]};
         await api("/pages/"+r.id, {method:"PATCH", body:JSON.stringify({properties:props})});
         try{ localStorage.removeItem(dkey); }catch(e){}
-        statusLine.textContent = "「"+val+"」にしました。まちがえたら、下の「取り消す」で未確認に戻せます。";
-        statusLine.style.display = "block";
         undo.style.display = "inline-block";
-        setBusy("「"+val+"」にしました");
+        setBusy("「"+val+"」にしました（まちがえたら「取り消す」で戻せます）");
       }catch(e){ setBusy("失敗: "+e.message); }
     };
     const saveComment = async () => {
@@ -259,8 +256,7 @@ async function load(){
       undo.disabled = true; setBusy("戻しています…");
       try{
         await api("/pages/"+r.id, {method:"PATCH", body:JSON.stringify({properties:{"状態":{"select":{"name":"未確認"}}}})});
-        statusLine.textContent = "未確認に戻しました。判断の一覧に残っています。";
-        undo.style.display = "none"; setBusy("未確認に戻しました");
+        undo.style.display = "none"; setBusy("未確認に戻しました（判断の一覧に残っています）");
       }catch(e){ setBusy("失敗: "+e.message); }
       undo.disabled = false;
     };
@@ -330,19 +326,37 @@ async function load(){
         row.appendChild(undo);
         setBusy("完了にしました。まちがえたら「取り消す」で戻せます。"); }
       catch(e){ setBusy("失敗: "+e.message); b.disabled=false; } };
-    const bq=$("button","act"); bq.textContent="調べてもらう";
+    const bq=$("button","act");
     const qkey = "asked_"+t.id;
-    if(localStorage.getItem(qkey)){ bq.textContent="依頼済み"; bq.disabled=true; }
-    bq.onclick = async () => { bq.disabled=true; bq.textContent="送信中…"; setBusy("依頼を送っています…");
-      try{ await api("/blocks/"+MEMO_PAGE+"/children", {method:"PATCH", body:JSON.stringify({
-            children:[{"object":"block","type":"paragraph","paragraph":{"rich_text":[
-              {"type":"text","text":{"content":stamp()+" 端末から: 【調べてもらう】"+name+" について調べて、Discord で教えてください。"}}]}}]})});
+    const qline = $("div","stat");
+    const markAsked = (msg) => { bq.textContent="依頼済み ✓"; bq.disabled=true; bq.classList.add("done");
+      qline.textContent = msg || "送信を確認しました。Hermes が次回の確認で拾って、Discord でお返事します。";
+      qline.style.display="block"; };
+    if(localStorage.getItem(qkey)){ markAsked("送信済みです（Hermes が次の確認で拾います）。"); }
+    else { bq.textContent="調べてもらう"; }
+    bq.onclick = async () => {
+      bq.disabled=true; bq.textContent="送信中…"; bq.classList.remove("done"); setBusy("依頼を送っています…");
+      const lineText = stamp()+" 端末から: 【調べてもらう】"+name+" について調べて、Discord で教えてください。";
+      try{
+        await api("/blocks/"+MEMO_PAGE+"/children", {method:"PATCH", body:JSON.stringify({
+          children:[{"object":"block","type":"paragraph","paragraph":{"rich_text":[
+            {"type":"text","text":{"content":lineText}}]}}]})});
+        // 送れたかどうかを、ページを読み直して確認する
+        const chk = await api("/blocks/"+MEMO_PAGE+"/children?page_size=100");
+        const ok = chk.results.some(x => x.type==="paragraph" &&
+          x.paragraph.rich_text.map(r=>r.plain_text).join("") === lineText);
+        if(!ok) throw new Error("確認できませんでした");
         try{ localStorage.setItem(qkey,"1"); }catch(e){}
-        bq.textContent="依頼済み（Hermes が確認します）";
-        setBusy("送りました。次の確認（15分以内）で拾って調べます。"); }
-      catch(e){ setBusy("失敗: "+e.message); bq.disabled=false; bq.textContent="調べてもらう"; } };
+        markAsked();
+        setBusy("依頼を送りました（送信を確認しました）");
+      }catch(e){
+        bq.disabled=false; bq.textContent="調べてもらう"; bq.classList.remove("done");
+        setBusy("送れませんでした。もう一度押してください。");
+      }
+    };
     row.appendChild(b); row.appendChild(db); row.appendChild(bq);
     card.appendChild(row);
+    card.appendChild(qline);
     card.appendChild(detail);
     s2.appendChild(card);
   }
