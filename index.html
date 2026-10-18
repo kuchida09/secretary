@@ -82,6 +82,7 @@
 const REVIEW = "60242da1-b213-4118-ae82-f8782a816cb2";
 const TASKS  = "ef21b283-795e-4fec-8311-2e40c4cb0c57";
 const MEMO_PAGE = "3fde71bc-ecb6-81af-8624-ebb86a23bd14";
+const SIGN_PAGE = "3fde71bc-ecb6-81f8-b7e0-f3408a247d50";
 const NV = "2025-09-03";
 const app = document.getElementById("app");
 const foot = document.getElementById("foot");
@@ -421,6 +422,35 @@ async function load(){
     fsend.disabled = false;
   };
   loadMemo();
+
+  // ---- 確認サイン（読了ボタン） ----
+  const s4 = $("section");
+  s4.innerHTML = '<div class="head"><h2>ここまで確認した</h2></div>';
+  const h4 = $("div","hint");
+  h4.innerHTML = "編集中や押し間違いの途中で Hermes が動かないよう、<b>判断の合図はこのボタンだけ</b>にしています。押した時点の内容で Hermes が動きます（1分以内）。";
+  s4.appendChild(h4);
+  const srow = $("div","row");
+  const sbtn = $("button","act p"); sbtn.textContent = "✅ 確認した（これで判断して）";
+  const lastSign = localStorage.getItem("last_sign") || "";
+  const sstat = $("div","meta"); sstat.textContent = lastSign ? ("最終: " + lastSign) : "まだ押していません";
+  sbtn.onclick = async () => {
+    sbtn.disabled = true; setBusy("送っています…");
+    try{
+      const n = new Date(); const pad = x => String(x).padStart(2,"0");
+      const stamp = n.getFullYear()+"-"+pad(n.getMonth()+1)+"-"+pad(n.getDate())+" "+pad(n.getHours())+":"+pad(n.getMinutes());
+      await api("/blocks/"+SIGN_PAGE+"/children", {method:"PATCH", body:JSON.stringify({
+        children:[{"object":"block","type":"paragraph","paragraph":{"rich_text":[
+          {"type":"text","text":{"content":"読了: "+stamp}}]}}]})});
+      try{ localStorage.setItem("last_sign", stamp); }catch(e){}
+      sstat.textContent = "最終: " + stamp;
+      setBusy("送りました。1分以内に確認します。");
+    }catch(e){ setBusy("失敗: "+e.message); }
+    sbtn.disabled = false;
+  };
+  srow.appendChild(sbtn);
+  s4.appendChild(srow);
+  s4.appendChild(sstat);
+  app.appendChild(s4);
 
   setBusy("");
 }
