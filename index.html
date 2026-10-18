@@ -60,6 +60,7 @@
     background:var(--alt);border-radius:10px;padding:9px 11px}
   .hint b{color:var(--ink)}
   .cnow{font-size:12.5px;color:var(--ink);background:var(--accent-soft);border-radius:8px;padding:7px 10px;margin-top:8px}
+  .stat{font-size:12.5px;color:var(--done);background:var(--done-soft);border-radius:8px;padding:7px 10px;margin-top:8px;display:none}
   .meta{font-size:11.5px;color:var(--soft);margin-top:6px}
   .empty{font-size:13.5px;color:var(--soft);padding:10px 2px}
   #setup{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
@@ -85,6 +86,8 @@ const app = document.getElementById("app");
 const foot = document.getElementById("foot");
 const $ = (t,c) => { const e=document.createElement(t); if(c) e.className=c; return e; };
 const esc = s => (s||"").replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+const stamp = () => { const n=new Date(), p=x=>String(x).padStart(2,"0");
+  return n.getFullYear()+"-"+p(n.getMonth()+1)+"-"+p(n.getDate())+" "+p(n.getHours())+":"+p(n.getMinutes()); };
 
 let token = localStorage.getItem("secretary_token") || "";
 let busy = 0;
@@ -178,7 +181,7 @@ async function load(){
   s1.innerHTML = '<div class="head"><h2>判断が必要なもの</h2><span class="c">'+open.length+'件</span></div>';
   const hint = $("div","hint");
   hint.innerHTML = "<b>この案で進める</b>＝提案のとおり実行します（提案が「やらない」のときは「やらない方針にする」という意味です）<br>"+
-    "<b>直して</b>・<b>追加で調べて</b>＝コメントを書いてから押してください<br>"+
+    "<b>直して</b>・<b>追加で調べて</b>＝上のコメント欄に内容を書いてから押します（押しても、あとから取り消せます）<br>"+
     "<b>判断延期</b>＝いまは決めない（次にまた聞きます）／<b>見送る</b>＝この提案を取り下げる";
   s1.appendChild(hint);
   if(open.length===0) s1.appendChild($("div","empty")).textContent = "いまはありません。";
@@ -205,21 +208,16 @@ async function load(){
     commentBox.className = "cinput";
     commentBox.placeholder = "コメント（「直して」は直す内容、「追加で調べて」は知りたい点を書いてください）";
     if(memo2) commentBox.value = memo2;
+    const dkey = "draft_"+r.id;
+    if(!commentBox.value){ const dv = localStorage.getItem(dkey); if(dv) commentBox.value = dv; }
+    commentBox.addEventListener("input", ()=>{ try{ localStorage.setItem(dkey, commentBox.value); }catch(e){} });
     cwrap.appendChild(commentBox);
     card.appendChild(cwrap);
 
     if(replied){ const rp = $("div","cnow"); rp.textContent = "Hermes の対応: "+replied; card.appendChild(rp); }
 
-    const saveComment = async () => {
-      const v = commentBox.value.trim();
-      setBusy("コメントを保存中…");
-      try{ await api("/pages/"+r.id, {method:"PATCH", body:JSON.stringify({properties:{
-        "コメント":{"rich_text": v ? [{"text":{"content":v}}] : []}}})});
-        setBusy("コメントを保存しました"); }
-      catch(e){ setBusy("失敗: "+e.message); }
-    };
+    const statusLine = $("div","stat"); card.appendChild(statusLine);
 
-    const row = $("div","row");
     const setState = async (val) => {
       setBusy("反映中…");
       try{
@@ -227,22 +225,51 @@ async function load(){
         const cm = commentBox.value.trim();
         if(cm) props["コメント"] = {"rich_text":[{"text":{"content":cm}}]};
         await api("/pages/"+r.id, {method:"PATCH", body:JSON.stringify({properties:props})});
-        card.classList.add("gone"); setBusy("「"+val+"」にしました");
+        try{ localStorage.removeItem(dkey); }catch(e){}
+        statusLine.textContent = "「"+val+"」にしました。まちがえたら、下の「取り消す」で未確認に戻せます。";
+        statusLine.style.display = "block";
+        undo.style.display = "inline-block";
+        setBusy("「"+val+"」にしました");
       }catch(e){ setBusy("失敗: "+e.message); }
+    };
+    const saveComment = async () => {
+      const v = commentBox.value.trim();
+      setBusy("コメントを保存中…");
+      try{ await api("/pages/"+r.id, {method:"PATCH", body:JSON.stringify({properties:{
+        "コメント":{"rich_text": v ? [{"text":{"content":v}}] : []}}})});
+        try{ localStorage.removeItem(dkey); }catch(e){}
+        setBusy("コメントを保存しました（状態は変わりません）"); }
+      catch(e){ setBusy("失敗: "+e.message); }
     };
     const mk = (label, cls, need) => {
       const b = $("button","act "+(cls||""));
       b.textContent = label;
       b.onclick = () => {
         if(need && !commentBox.value.trim()){ setBusy("先にコメントを書いてください"); commentBox.focus(); return; }
-        if(label==="コメントを保存"){ saveComment(); return; }
-        b.disabled = true; setState(label);
+        if(label.indexOf("コメント")===0){ saveComment(); return; }
+        b.disabled = true; setState(label.replace(/（.*）/,""));
       };
       return b;
     };
+    const row = $("div","row");
+    const undo = $("button","act q");
+    undo.textContent = "取り消す（未確認に戻す）";
+    undo.style.display = "none";
+    undo.onclick = async () => {
+      undo.disabled = true; setBusy("戻しています…");
+      try{
+        await api("/pages/"+r.id, {method:"PATCH", body:JSON.stringify({properties:{"状態":{"select":{"name":"未確認"}}}})});
+        statusLine.textContent = "未確認に戻しました。判断の一覧に残っています。";
+        undo.style.display = "none"; setBusy("未確認に戻しました");
+      }catch(e){ setBusy("失敗: "+e.message); }
+      undo.disabled = false;
+    };
     row.append(mk("この案で進める","p"), mk("直して","",true), mk("追加で調べて","",true),
-               mk("判断延期","q"), mk("見送る","q"), mk("コメントを保存","q"));
+               mk("判断延期","q"), mk("見送る","q"), mk("コメントを保存","q"), undo);
     card.appendChild(row);
+    const jh = $("div","meta");
+    jh.textContent = "「直して」「追加で調べて」は、上のコメント欄に内容を書いてから押します。「コメントを保存」は状態を変えずにコメントだけ残します。";
+    card.appendChild(jh);
     s1.appendChild(card);
 
     api("/blocks/"+r.id+"/children?page_size=50").then(b=>{
@@ -270,6 +297,24 @@ async function load(){
     card.appendChild(top);
     const tt=$("div","title"); tt.textContent = name; card.appendChild(tt);
     if(memo){ const m=$("div","meta"); m.textContent = memo; card.appendChild(m); }
+
+    // 詳細（タスクのページ本文をトグルで開く）
+    const detail = $("div","body"); detail.style.display="none";
+    const db = $("button","act q"); db.textContent="詳細を開く";
+    db.onclick = async () => {
+      if(detail.style.display==="none"){
+        if(!detail.dataset.loaded){
+          setBusy("詳細を読み込み中…"); db.disabled = true;
+          try{
+            const bb = await api("/blocks/"+t.id+"/children?page_size=50");
+            detail.innerHTML = blocksToHtml(bb.results) || '<div class="sub">詳細はまだありません。</div>';
+          }catch(e){ detail.innerHTML = '<div class="sub">詳細を読み込めませんでした。</div>'; }
+          detail.dataset.loaded="1"; db.disabled = false; setBusy("");
+        }
+        detail.style.display="block"; db.textContent="詳細を閉じる";
+      } else { detail.style.display="none"; db.textContent="詳細を開く"; }
+    };
+
     const row=$("div","row");
     const b=$("button","act p"); b.textContent="完了";
     b.onclick = async () => { b.disabled=true; setBusy("完了にしています…");
@@ -277,8 +322,17 @@ async function load(){
             "状態":{"select":{"name":"完了"}}, "完了日":{"date":{"start":today}} }})});
         card.classList.add("gone"); setBusy("完了にしました"); }
       catch(e){ setBusy("失敗: "+e.message); b.disabled=false; } };
-    row.appendChild(b);
+    const bq=$("button","act"); bq.textContent="調べてもらう";
+    bq.onclick = async () => { bq.disabled=true; setBusy("依頼を送っています…");
+      try{ await api("/blocks/"+MEMO_PAGE+"/children", {method:"PATCH", body:JSON.stringify({
+            children:[{"object":"block","type":"paragraph","paragraph":{"rich_text":[
+              {"type":"text","text":{"content":stamp()+" 端末から: 【調べてもらう】"+name+" について調べて、Discord で教えてください。"}}]}}]})});
+        setBusy("送りました。Hermes が調べます。"); }
+      catch(e){ setBusy("失敗: "+e.message); }
+      bq.disabled=false; };
+    row.appendChild(b); row.appendChild(db); row.appendChild(bq);
     card.appendChild(row);
+    card.appendChild(detail);
     s2.appendChild(card);
   }
   app.appendChild(s2);
@@ -293,6 +347,8 @@ async function load(){
   const ftext = document.createElement("textarea");
   ftext.className = "cinput";
   ftext.placeholder = "例: タスクにも「明日に」ボタンが欲しい／判断の一覧が長いときは畳みたい";
+  ftext.value = localStorage.getItem("draft_memo") || "";
+  ftext.addEventListener("input", ()=>{ try{ localStorage.setItem("draft_memo", ftext.value); }catch(e){} });
   fbox.appendChild(ftext);
   const frow = $("div","row");
   const fsend = $("button","act p"); fsend.textContent = "送信";
@@ -320,13 +376,11 @@ async function load(){
     if(!v){ setBusy("内容を書いてください"); ftext.focus(); return; }
     fsend.disabled = true; setBusy("送信中…");
     try{
-      const n = new Date();
-      const pad = x => String(x).padStart(2,"0");
-      const stamp = n.getFullYear()+"-"+pad(n.getMonth()+1)+"-"+pad(n.getDate())+" "+pad(n.getHours())+":"+pad(n.getMinutes());
       await api("/blocks/"+MEMO_PAGE+"/children", {method:"PATCH", body:JSON.stringify({
         children:[{"object":"block","type":"paragraph","paragraph":{"rich_text":[
-          {"type":"text","text":{"content":stamp+" 端末から: "+v}}]}}]})});
-      ftext.value = ""; setBusy("送りました"); loadMemo();
+          {"type":"text","text":{"content":stamp()+" 端末から: "+v}}]}}]})});
+      ftext.value = ""; try{ localStorage.removeItem("draft_memo"); }catch(e){}
+      setBusy("送りました"); loadMemo();
     }catch(e){ setBusy("失敗: "+e.message); }
     fsend.disabled = false;
   };
