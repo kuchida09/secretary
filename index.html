@@ -79,6 +79,7 @@
 <script>
 const REVIEW = "60242da1-b213-4118-ae82-f8782a816cb2";
 const TASKS  = "ef21b283-795e-4fec-8311-2e40c4cb0c57";
+const MEMO_PAGE = "3fde71bc-ecb6-81af-8624-ebb86a23bd14";
 const NV = "2025-09-03";
 const app = document.getElementById("app");
 const foot = document.getElementById("foot");
@@ -281,6 +282,56 @@ async function load(){
     s2.appendChild(card);
   }
   app.appendChild(s2);
+
+  // ---- 改善したい点 ----
+  const s3 = $("section");
+  s3.innerHTML = '<div class="head"><h2>改善したい点</h2></div>';
+  const h3 = $("div","hint");
+  h3.textContent = "使いにくいところ、欲しい機能、こう動いてほしい、などを書いて送ってください。Notion の「🔧 アプリの改善メモ」に追記され、Hermes が読んで手を入れます。";
+  s3.appendChild(h3);
+  const fbox = $("div","cwrap");
+  const ftext = document.createElement("textarea");
+  ftext.className = "cinput";
+  ftext.placeholder = "例: タスクにも「明日に」ボタンが欲しい／判断の一覧が長いときは畳みたい";
+  fbox.appendChild(ftext);
+  const frow = $("div","row");
+  const fsend = $("button","act p"); fsend.textContent = "送信";
+  const recent = $("div","body"); recent.id = "memo-recent";
+  s3.appendChild(fbox);
+  frow.appendChild(fsend);
+  fbox.appendChild(frow);
+  s3.appendChild(recent);
+  app.appendChild(s3);
+
+  async function loadMemo(){
+    try{
+      const b = await api("/blocks/"+MEMO_PAGE+"/children?page_size=100");
+      const items = b.results.filter(x => x.type==="paragraph")
+        .map(x => x.paragraph.rich_text.map(r=>r.plain_text).join(""))
+        .filter(t => /^\d{4}-\d{2}-\d{2}/.test(t.trim()));
+      const last = items.slice(-4).reverse();
+      recent.innerHTML = last.length
+        ? "<h4>最近のメモ</h4>" + last.map(t => "<div>・"+esc(t)+"</div>").join("")
+        : "";
+    }catch(e){ recent.innerHTML = ""; }
+  }
+  fsend.onclick = async () => {
+    const v = ftext.value.trim();
+    if(!v){ setBusy("内容を書いてください"); ftext.focus(); return; }
+    fsend.disabled = true; setBusy("送信中…");
+    try{
+      const n = new Date();
+      const pad = x => String(x).padStart(2,"0");
+      const stamp = n.getFullYear()+"-"+pad(n.getMonth()+1)+"-"+pad(n.getDate())+" "+pad(n.getHours())+":"+pad(n.getMinutes());
+      await api("/blocks/"+MEMO_PAGE+"/children", {method:"PATCH", body:JSON.stringify({
+        children:[{"object":"block","type":"paragraph","paragraph":{"rich_text":[
+          {"type":"text","text":{"content":stamp+" 端末から: "+v}}]}}]})});
+      ftext.value = ""; setBusy("送りました"); loadMemo();
+    }catch(e){ setBusy("失敗: "+e.message); }
+    fsend.disabled = false;
+  };
+  loadMemo();
+
   setBusy("");
 }
 
