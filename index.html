@@ -175,6 +175,22 @@ async function load(){
 
   const open = review.filter(r => !["対応済み","見送る"].includes(txt(r.properties["状態"])));
   const openTasks = tasks.filter(t => txt(t.properties["状態"]) !== "完了");
+
+  // 「調べてもらう」の依頼が片付いたか（依頼行の直後に「対応:」があるか）で見る
+  let handledReqs = [];
+  try{
+    const mb = await api("/blocks/"+MEMO_PAGE+"/children?page_size=100");
+    const lines = mb.results.filter(x=>x.type==="paragraph")
+      .map(x=>x.paragraph.rich_text.map(r=>r.plain_text).join("").trim()).filter(t=>t);
+    for(let i=0;i<lines.length;i++){
+      if(!/^\d{4}-\d{2}-\d{2}/.test(lines[i])) continue;
+      for(let j=i+1;j<lines.length;j++){
+        if(/^\d{4}-\d{2}-\d{2}/.test(lines[j])) break;
+        if(lines[j].replace(/^-\s*/,"").startsWith("対応:")){ handledReqs.push(lines[i]); break; }
+      }
+    }
+  }catch(e){}
+  const isHandled = (name) => handledReqs.some(h => h.includes(name));
   const today = new Date().toISOString().slice(0,10);
   const late = openTasks.filter(t => { const d=txt(t.properties["期限"]); return d && d<=today; }).length;
 
@@ -339,7 +355,9 @@ async function load(){
     const markAsked = (msg) => { bq.textContent="依頼済み ✓"; bq.disabled=true; bq.classList.add("done");
       qline.textContent = msg || "送信を確認しました。Hermes が次回の確認で拾って、Discord でお返事します。";
       qline.style.display="block"; };
-    if(localStorage.getItem(qkey)){ markAsked("送信済みです（Hermes が次の確認で拾います）。"); }
+    if(localStorage.getItem(qkey) && isHandled(name)){
+      markAsked("Hermes が調べました。結果は「🔧 アプリの改善メモ」に書いてあります。"); bq.textContent="対応済み ✓"; }
+    else if(localStorage.getItem(qkey)){ markAsked("送信済みです。Hermes が次の確認（1分ごと）で拾います。"); }
     else { bq.textContent="調べてもらう"; }
     bq.onclick = async () => {
       bq.disabled=true; bq.textContent="送信中…"; bq.classList.remove("done"); setBusy("依頼を送っています…");
@@ -378,9 +396,30 @@ async function load(){
   const sstat = $("div","meta"); sstat.textContent = lastSign ? ("最終: " + lastSign) : "まだ押していません";
   sbtn.onclick = async () => {
     sbtn.disabled = true; setBusy("送っています…");
+    const n = new Date(); const pad = x => String(x).padStart(2,"0");
+    const stamp = n.getFullYear()+"-"+pad(n.getMonth()+1)+"-"+pad(n.getDate())+" "+pad(n.getHours())+":"+pad(n.getMinutes());
     try{
-      const n = new Date(); const pad = x => String(x).padStart(2,"0");
-      const stamp = n.getFullYear()+"-"+pad(n.getMonth()+1)+"-"+pad(n.getDate())+" "+pad(n.getHours())+":"+pad(n.getMinutes());
+      // 未保存のコメント・メモを先に保存してから合図を出す（書きかけで判断されないように）
+      try{
+        const keys = [];
+        for(let i=0;i<localStorage.length;i++){ const k = localStorage.key(i);
+          if(k && k.startsWith("draft_") && k !== "draft_memo") keys.push(k); }
+        for(const k of keys){
+          const v = (localStorage.getItem(k) || "").trim();
+          const id = k.slice(6);
+          if(!v || id.length < 30) continue;
+          await api("/pages/"+id, {method:"PATCH", body:JSON.stringify({properties:{
+            "コメント":{"rich_text":[{"type":"text","text":{"content":v}}]}}})});
+          try{ localStorage.removeItem(k); }catch(e){}
+        }
+        const md = (localStorage.getItem("draft_memo") || "").trim();
+        if(md){
+          await api("/blocks/"+MEMO_PAGE+"/children", {method:"PATCH", body:JSON.stringify({
+            children:[{"object":"block","type":"paragraph","paragraph":{"rich_text":[
+              {"type":"text","text":{"content":stamp+" 端末から: "+md}}]}}]})});
+          try{ localStorage.removeItem("draft_memo"); }catch(e){}
+        }
+      }catch(e){}
       await api("/blocks/"+SIGN_PAGE+"/children", {method:"PATCH", body:JSON.stringify({
         children:[{"object":"block","type":"paragraph","paragraph":{"rich_text":[
           {"type":"text","text":{"content":"読了: "+stamp}}]}}]})});
