@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#FBF9F4">
+<title>秘書</title>
+<style>
+  :root{
+    --ink:#2A2823; --soft:#6E6C61; --line:#E6E3D9; --accent:#B85C3A; --accent-soft:#F3E4DB;
+    --urgent:#A83B3B; --urgent-soft:#F6E2E0; --done:#5C7A5E; --done-soft:#E4EBE1;
+    --paper:#FBF9F4; --card:#FFFFFF; --alt:#F6F3EC;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --ink:#EDE9DF; --soft:#A6A296; --line:#3A382F; --accent:#E08A63; --accent-soft:#3A2A22;
+      --urgent:#E27C7C; --urgent-soft:#3E2626; --done:#8FB08F; --done-soft:#223226;
+      --paper:#1C1B17; --card:#242219; --alt:#2A2820; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif;
+    line-height:1.7;padding:20px 16px calc(48px + env(safe-area-inset-bottom));max-width:640px;margin:0 auto;}
+  h1,h2,h3{font-family:"Hiragino Mincho ProN","Yu Mincho",serif;font-weight:600;line-height:1.45}
+  h1{font-size:22px;margin:6px 0 2px}
+  .sub{font-size:12.5px;color:var(--soft)}
+  .top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:14px}
+  .refresh{font-size:12.5px;color:var(--accent);background:none;border:none;font-family:inherit;padding:4px 2px}
+  .counts{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);
+    border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:14px 0 26px}
+  .counts div{background:var(--card);padding:11px 6px;text-align:center}
+  .counts b{display:block;font-size:21px;font-family:"Hiragino Mincho ProN",serif}
+  .counts span{font-size:10.5px;color:var(--soft)}
+  section{margin-bottom:32px}
+  .head{display:flex;align-items:baseline;gap:8px;margin-bottom:10px}
+  .head h2{font-size:16.5px;margin:0}
+  .head .c{font-size:11.5px;color:var(--soft)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 15px;margin-bottom:12px}
+  .card.gone{opacity:.5}
+  .num{font-size:11.5px;color:var(--accent);font-weight:700}
+  .title{font-size:15.5px;font-weight:600;margin:2px 0 8px}
+  .body{font-size:13.5px;color:var(--soft)}
+  .body h4{font-size:12.5px;color:var(--ink);margin:10px 0 2px;font-weight:600}
+  .body ul{margin:2px 0 0;padding-left:1.15em}
+  .body li{margin:1px 0}
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
+  button.act{font-family:inherit;font-size:13px;font-weight:600;padding:8px 13px;border-radius:9px;
+    border:1px solid var(--line);background:var(--alt);color:var(--ink)}
+  button.act.p{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.act.q{background:transparent}
+  button.act:disabled{opacity:.45}
+  .chip{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;background:var(--alt);color:var(--soft);white-space:nowrap}
+  .chip.u{background:var(--urgent-soft);color:var(--urgent)}
+  .chip.d{background:var(--done-soft);color:var(--done)}
+  .cwrap{margin-top:12px}
+  .cinput{width:100%;min-height:56px;font:inherit;font-size:13.5px;padding:9px;border:1px solid var(--line);
+    border-radius:9px;background:var(--alt);color:var(--ink);resize:vertical}
+  .hint{font-size:11.5px;color:var(--soft);line-height:1.65;margin:0 0 12px;
+    background:var(--alt);border-radius:10px;padding:9px 11px}
+  .hint b{color:var(--ink)}
+  .cnow{font-size:12.5px;color:var(--ink);background:var(--accent-soft);border-radius:8px;padding:7px 10px;margin-top:8px}
+  .meta{font-size:11.5px;color:var(--soft);margin-top:6px}
+  .empty{font-size:13.5px;color:var(--soft);padding:10px 2px}
+  #setup{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+  #setup input{width:100%;font:inherit;font-size:14px;padding:10px;border:1px solid var(--line);
+    border-radius:9px;background:var(--alt);color:var(--ink);margin:8px 0}
+  #setup a{color:var(--accent);font-size:12.5px}
+  .err{color:var(--urgent);font-size:13px}
+  footer{font-size:11.5px;color:var(--soft);border-top:1px solid var(--line);padding-top:12px;margin-top:8px}
+  .busy{font-size:12px;color:var(--accent);min-height:16px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<footer id="foot" style="display:none">
+  秘書（Hermes）・Notion の「秘書」ページだけを読み書きします。トークンはこの端末の中だけに保存されます。<a href="#" id="reset" style="color:var(--accent)">トークンを入れ直す</a>
+</footer>
+<script>
+const REVIEW = "60242da1-b213-4118-ae82-f8782a816cb2";
+const TASKS  = "ef21b283-795e-4fec-8311-2e40c4cb0c57";
+const NV = "2025-09-03";
+const app = document.getElementById("app");
+const foot = document.getElementById("foot");
+const $ = (t,c) => { const e=document.createElement(t); if(c) e.className=c; return e; };
+const esc = s => (s||"").replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+
+let token = localStorage.getItem("secretary_token") || "";
+let busy = 0;
+
+function setBusy(msg){
+  let el = document.getElementById("busy");
+  if(!el){ el = document.createElement("div"); el.id="busy"; el.className="busy"; }
+  el.textContent = msg || "";
+  if(!el.parentNode) app.prepend(el);
+}
+
+async function api(path, opts={}){
+  const res = await fetch("https://api.notion.com/v1"+path, {
+    ...opts,
+    headers: { "Authorization":"Bearer "+token, "Notion-Version":NV, "Content-Type":"application/json", ...(opts.headers||{}) }
+  });
+  if(!res.ok){ throw new Error(res.status+" "+((await res.json().catch(()=>({}))).message||"") ); }
+  return res.json();
+}
+const txt = v => { if(!v) return ""; const t=v.type;
+  if(t==="title") return v.title.map(x=>x.plain_text).join("");
+  if(t==="rich_text") return v.rich_text.map(x=>x.plain_text).join("");
+  if(t==="select"||t==="status") return (v[t]||{}).name||"";
+  if(t==="date") return (v.date||{}).start||"";
+  if(t==="checkbox") return v.checkbox;
+  return ""; };
+
+function blockToHtml(b){
+  const k = b.type;
+  const rich = x => (x||[]).map(r => r.href ? '<a href="'+esc(r.href)+'">'+esc(r.plain_text)+"</a>"
+      : (r.annotations&&r.annotations.bold ? "<b>"+esc(r.plain_text)+"</b>" : esc(r.plain_text))).join("");
+  if(k==="heading_1"||k==="heading_2"||k==="heading_3") return "<h4>"+rich(b[k].rich_text)+"</h4>";
+  if(k==="bulleted_list_item"||k==="numbered_list_item") return "<li>"+rich(b[k].rich_text)+"</li>";
+  if(k==="paragraph"||k==="quote"||k==="callout") return "<div>"+rich(b[k].rich_text)+"</div>";
+  if(k==="to_do") return "<div>"+(b.to_do.checked?"☑ ":"☐ ")+rich(b.to_do.rich_text)+"</div>";
+  if(k==="divider") return "<hr>";
+  return "";
+}
+function blocksToHtml(blocks){
+  let out = "", li = false;
+  for(const b of blocks){
+    const isLi = b.type==="bulleted_list_item"||b.type==="numbered_list_item";
+    if(li && !isLi){ out += "</ul>"; li=false; }
+    if(!li && isLi){ out += "<ul>"; li=true; }
+    out += blockToHtml(b);
+  }
+  if(li) out += "</ul>";
+  return out;
+}
+
+async function load(){
+  app.innerHTML = "";
+  setBusy("読み込み中…");
+  const head = $("div","top");
+  const left = $("div");
+  const d = new Date();
+  left.innerHTML = '<h1>秘書</h1><div class="sub">'+
+    d.getFullYear()+"年"+(d.getMonth()+1)+"月"+d.getDate()+"日 "+"日月火水木金土"[d.getDay()]+"曜日</div>";
+  const rb = $("button","refresh"); rb.textContent="更新";
+  rb.onclick = () => load();
+  head.append(left, rb);
+  app.appendChild(head);
+
+  let review=[], tasks=[];
+  try{
+    const [rv, tk] = await Promise.all([
+      api("/data_sources/"+REVIEW+"/query", {method:"POST", body:JSON.stringify({page_size:50})}),
+      api("/data_sources/"+TASKS+"/query",  {method:"POST", body:JSON.stringify({page_size:50})})
+    ]);
+    review = rv.results; tasks = tk.results;
+  }catch(e){
+    setBusy("");
+    app.appendChild(setupCard(String(e.message||e)));
+    return;
+  }
+  localStorage.setItem("secretary_cache", JSON.stringify({t:Date.now(),review,tasks}));
+
+  const open = review.filter(r => !["対応済み","見送る"].includes(txt(r.properties["状態"])));
+  const openTasks = tasks.filter(t => txt(t.properties["状態"]) !== "完了");
+  const today = new Date().toISOString().slice(0,10);
+  const late = openTasks.filter(t => { const d=txt(t.properties["期限"]); return d && d<=today; }).length;
+
+  const c = $("div","counts");
+  c.innerHTML = '<div><b>'+open.length+'</b><span>判断まち</span></div>'+
+                '<div><b>'+openTasks.length+'</b><span>未完了タスク</span></div>'+
+                '<div><b'+(late?' style="color:var(--urgent)"':'')+'>'+late+'</b><span>期限内に要対応</span></div>';
+  app.appendChild(c);
+
+  // ---- 判断が必要なもの ----
+  const s1 = $("section");
+  s1.innerHTML = '<div class="head"><h2>判断が必要なもの</h2><span class="c">'+open.length+'件</span></div>';
+  const hint = $("div","hint");
+  hint.innerHTML = "<b>この案で進める</b>＝提案のとおり実行します（提案が「やらない」のときは「やらない方針にする」という意味です）<br>"+
+    "<b>直して</b>・<b>追加で調べて</b>＝コメントを書いてから押してください<br>"+
+    "<b>判断延期</b>＝いまは決めない（次にまた聞きます）／<b>見送る</b>＝この提案を取り下げる";
+  s1.appendChild(hint);
+  if(open.length===0) s1.appendChild($("div","empty")).textContent = "いまはありません。";
+  for(const r of open){
+    const card = $("div","card");
+    const title = txt(r.properties["件名"]);
+    const kind = txt(r.properties["種類"]);
+    const due = txt(r.properties["期限"]);
+    const memo2 = txt(r.properties["コメント"]);
+    const replied = txt(r.properties["Hermes の対応"]);
+    const top = $("div","row");
+    top.style.margin = "0 0 2px";
+    top.innerHTML = '<span class="num">'+esc(title.split(" ")[0]||"")+'</span>'+
+      '<span class="chip">'+esc(kind||"提案")+'</span>'+
+      (due ? '<span class="chip u">期限 '+esc(due)+'</span>' : "");
+    card.appendChild(top);
+    const t = $("div","title"); t.textContent = title.replace(/^#\S+\s*/,"");
+    card.appendChild(t);
+    const body = $("div","body"); body.innerHTML = '<div class="sub">読み込み中…</div>';
+    card.appendChild(body);
+    // コメント欄 → ボタン
+    const cwrap = $("div","cwrap");
+    const commentBox = document.createElement("textarea");
+    commentBox.className = "cinput";
+    commentBox.placeholder = "コメント（「直して」は直す内容、「追加で調べて」は知りたい点を書いてください）";
+    if(memo2) commentBox.value = memo2;
+    cwrap.appendChild(commentBox);
+    card.appendChild(cwrap);
+
+    if(replied){ const rp = $("div","cnow"); rp.textContent = "Hermes の対応: "+replied; card.appendChild(rp); }
+
+    const saveComment = async () => {
+      const v = commentBox.value.trim();
+      setBusy("コメントを保存中…");
+      try{ await api("/pages/"+r.id, {method:"PATCH", body:JSON.stringify({properties:{
+        "コメント":{"rich_text": v ? [{"text":{"content":v}}] : []}}})});
+        setBusy("コメントを保存しました"); }
+      catch(e){ setBusy("失敗: "+e.message); }
+    };
+
+    const row = $("div","row");
+    const setState = async (val) => {
+      setBusy("反映中…");
+      try{
+        const props = {"状態":{"select":{"name":val}}};
+        const cm = commentBox.value.trim();
+        if(cm) props["コメント"] = {"rich_text":[{"text":{"content":cm}}]};
+        await api("/pages/"+r.id, {method:"PATCH", body:JSON.stringify({properties:props})});
+        card.classList.add("gone"); setBusy("「"+val+"」にしました");
+      }catch(e){ setBusy("失敗: "+e.message); }
+    };
+    const mk = (label, cls, need) => {
+      const b = $("button","act "+(cls||""));
+      b.textContent = label;
+      b.onclick = () => {
+        if(need && !commentBox.value.trim()){ setBusy("先にコメントを書いてください"); commentBox.focus(); return; }
+        if(label==="コメントを保存"){ saveComment(); return; }
+        b.disabled = true; setState(label);
+      };
+      return b;
+    };
+    row.append(mk("この案で進める","p"), mk("直して","",true), mk("追加で調べて","",true),
+               mk("判断延期","q"), mk("見送る","q"), mk("コメントを保存","q"));
+    card.appendChild(row);
+    s1.appendChild(card);
+
+    api("/blocks/"+r.id+"/children?page_size=50").then(b=>{
+      body.innerHTML = blocksToHtml(b.results);
+    }).catch(()=>{ body.innerHTML = ""; });
+  }
+  app.appendChild(s1);
+
+  // ---- タスク ----
+  const s2 = $("section");
+  s2.innerHTML = '<div class="head"><h2>タスク</h2><span class="c">'+openTasks.length+'件</span></div>';
+  if(openTasks.length===0) s2.appendChild($("div","empty")).textContent = "未完了のタスクはありません。";
+  openTasks.sort((a,b)=> (txt(a.properties["期限"])||"9999").localeCompare(txt(b.properties["期限"])||"9999"));
+  for(const t of openTasks){
+    const card = $("div","card");
+    const name = txt(t.properties["名前"]);
+    const due = txt(t.properties["期限"]);
+    const pri = txt(t.properties["優先度"]);
+    const memo = txt(t.properties["メモ"]);
+    const isLate = due && due<=today;
+    const top=$("div","row"); top.style.margin="0 0 2px";
+    top.innerHTML = (isLate?'<span class="chip u">期限 '+esc(due)+'</span>'
+                          : (due?'<span class="chip">期限 '+esc(due)+'</span>':""))+
+                     (pri?'<span class="chip">優先度 '+esc(pri)+'</span>':"");
+    card.appendChild(top);
+    const tt=$("div","title"); tt.textContent = name; card.appendChild(tt);
+    if(memo){ const m=$("div","meta"); m.textContent = memo; card.appendChild(m); }
+    const row=$("div","row");
+    const b=$("button","act p"); b.textContent="完了";
+    b.onclick = async () => { b.disabled=true; setBusy("完了にしています…");
+      try{ await api("/pages/"+t.id,{method:"PATCH",body:JSON.stringify({properties:{
+            "状態":{"select":{"name":"完了"}}, "完了日":{"date":{"start":today}} }})});
+        card.classList.add("gone"); setBusy("完了にしました"); }
+      catch(e){ setBusy("失敗: "+e.message); b.disabled=false; } };
+    row.appendChild(b);
+    card.appendChild(row);
+    s2.appendChild(card);
+  }
+  app.appendChild(s2);
+  setBusy("");
+}
+
+function setupCard(err){
+  const box = $("div"); box.id="setup";
+  box.innerHTML = '<h2 style="font-size:16px;margin:0 0 6px">はじめての設定</h2>'+
+    '<div class="sub">Notion の連携トークンを一度だけ貼り付けてください。この端末の中だけに保存します。</div>'+
+    (err?'<div class="err" style="margin-top:8px">'+esc(err)+'</div>':"")+
+    '<input type="password" id="tok" placeholder="ntn_ または secret_ で始まる文字列" autocomplete="off">'+
+    '<button class="act p" id="save">保存して読み込む</button>'+
+    '<div style="margin-top:10px"><a href="https://www.notion.so/my-integrations" target="_blank">連携トークンの場所（notion.so/my-integrations）</a></div>'+
+    '<div class="sub" style="margin-top:8px">「秘書」ページとその下の2つのデータベースに、その連携を共有しておいてください。</div>';
+  document.getElementById("foot").style.display="block";
+  setTimeout(()=>{
+    document.getElementById("save").onclick = () => {
+      const v = document.getElementById("tok").value.trim();
+      if(!v) return;
+      token = v; localStorage.setItem("secretary_token", v); load();
+    };
+  },0);
+  return box;
+}
+
+function boot(){
+  document.getElementById("foot").style.display = token ? "block" : "none";
+  document.getElementById("reset").onclick = (e)=>{ e.preventDefault();
+    localStorage.removeItem("secretary_token"); token=""; boot(); };
+  if(!token){ app.appendChild(setupCard("")); return; }
+  load();
+}
+boot();
+</script>
+</body>
+</html>
