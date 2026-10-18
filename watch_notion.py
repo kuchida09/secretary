@@ -16,6 +16,11 @@ import pathlib
 import time
 import urllib.request
 
+def jst_now():
+    """日本時間の time.struct_time（実行環境が UTC でも正しく動くように）。"""
+    return time.gmtime(time.time() + 9 * 3600)
+
+
 REVIEW_DS = "60242da1-b213-4118-ae82-f8782a816cb2"
 TASKS_DS = "ef21b283-795e-4fec-8311-2e40c4cb0c57"
 MEMO_PAGE = "3fde71bc-ecb6-81af-8624-ebb86a23bd14"
@@ -116,6 +121,20 @@ def main():
         print("NOCHANGE")
         return
 
+    # 費用と夜間の歯止め（読了サイン＝利用者の明示操作は例外）
+    is_sign = bool(now.get("sign")) and now.get("sign") != old.get("sign")
+    nowj = jst_now()
+    today = time.strftime("%Y-%m-%d", nowj)
+    try:
+        logp = pathlib.Path(__file__).resolve().parent / "wake_log.txt"
+        wakes_today = sum(1 for ln in logp.read_text(encoding="utf-8").splitlines() if ln.startswith(today)) if logp.exists() else 0
+    except Exception:
+        wakes_today = 0
+    night = nowj.tm_hour >= 23 or nowj.tm_hour < 7
+    if not is_sign and (night or wakes_today >= 60):
+        print("NOCHANGE")  # 朝まで／上限まで待つ（変化は消さずに持ち越す）
+        return
+
     try:
         sp.write_text(json.dumps(now, ensure_ascii=False), encoding="utf-8")
     except Exception:
@@ -125,7 +144,7 @@ def main():
     try:
         logp = pathlib.Path(__file__).resolve().parent / "wake_log.txt"
         with logp.open("a", encoding="utf-8") as fh:
-            fh.write(time.strftime("%Y-%m-%d %H:%M") + " " +
+            fh.write(time.strftime("%Y-%m-%d %H:%M", jst_now()) + " " +
                      ("sign" if now.get("sign") != old.get("sign") else "change") + "\n")
         lines = logp.read_text(encoding="utf-8").splitlines()[-2000:]
         logp.write_text("\n".join(lines) + "\n", encoding="utf-8")
