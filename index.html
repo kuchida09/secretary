@@ -51,6 +51,12 @@
   button.act.q{background:transparent}
   button.act:disabled{opacity:.45}
   button.act.done{background:var(--done-soft);border-color:var(--done);color:var(--done);opacity:1}
+  button.sign{width:100%;font-family:inherit;font-size:15.5px;font-weight:700;letter-spacing:.02em;
+    padding:15px 18px;border:none;border-radius:999px;color:#fff;
+    background:linear-gradient(135deg,var(--accent),#D9835B);
+    box-shadow:0 6px 16px rgba(184,92,58,.28)}
+  button.sign:active{transform:translateY(1px);box-shadow:0 3px 10px rgba(184,92,58,.24)}
+  button.sign:disabled{opacity:.5;box-shadow:none}
   .chip{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;background:var(--alt);color:var(--soft);white-space:nowrap}
   .chip.u{background:var(--urgent-soft);color:var(--urgent)}
   .chip.d{background:var(--done-soft);color:var(--done)}
@@ -363,11 +369,37 @@ async function load(){
   }
   app.appendChild(s2);
 
+  // ---- 確認サイン（読了ボタン） ----
+  const s4 = $("section");
+  s4.innerHTML = '<div class="head"><h2>ここまで確認した</h2></div>';
+  const srow = $("div","row");
+  const sbtn = $("button","sign"); sbtn.textContent = "✅ 確認した（これで判断して）";
+  const lastSign = localStorage.getItem("last_sign") || "";
+  const sstat = $("div","meta"); sstat.textContent = lastSign ? ("最終: " + lastSign) : "まだ押していません";
+  sbtn.onclick = async () => {
+    sbtn.disabled = true; setBusy("送っています…");
+    try{
+      const n = new Date(); const pad = x => String(x).padStart(2,"0");
+      const stamp = n.getFullYear()+"-"+pad(n.getMonth()+1)+"-"+pad(n.getDate())+" "+pad(n.getHours())+":"+pad(n.getMinutes());
+      await api("/blocks/"+SIGN_PAGE+"/children", {method:"PATCH", body:JSON.stringify({
+        children:[{"object":"block","type":"paragraph","paragraph":{"rich_text":[
+          {"type":"text","text":{"content":"読了: "+stamp}}]}}]})});
+      try{ localStorage.setItem("last_sign", stamp); }catch(e){}
+      sstat.textContent = "最終: " + stamp;
+      setBusy("送りました。1分以内に確認します。");
+    }catch(e){ setBusy("失敗: "+e.message); }
+    sbtn.disabled = false;
+  };
+  srow.appendChild(sbtn);
+  s4.appendChild(srow);
+  s4.appendChild(sstat);
+  app.appendChild(s4);
+
   // ---- 改善したい点 ----
   const s3 = $("section");
   s3.innerHTML = '<div class="head"><h2>改善したい点</h2></div>';
   const h3 = $("div","hint");
-  h3.textContent = "使いにくいところ、欲しい機能、こう動いてほしい、などを書いて送ってください。Notion の「🔧 アプリの改善メモ」に追記され、Hermes が読んで手を入れます。Hermes は15分ごとに見に来ます（押した直後に「依頼済み」に変われば送信できています）。対応済みのメモはここには出ません。";
+  h3.textContent = "使いにくいところ、欲しい機能、こう動いてほしい、などを書いて送ってください。書いて送ったあと、上の「✅ 確認した（これで判断して）」を押すと、その時点の内容で Hermes が動きます。対応済みのメモはここには出ません。";
   s3.appendChild(h3);
   const fbox = $("div","cwrap");
   const ftext = document.createElement("textarea");
@@ -422,35 +454,6 @@ async function load(){
     fsend.disabled = false;
   };
   loadMemo();
-
-  // ---- 確認サイン（読了ボタン） ----
-  const s4 = $("section");
-  s4.innerHTML = '<div class="head"><h2>ここまで確認した</h2></div>';
-  const h4 = $("div","hint");
-  h4.innerHTML = "編集中や押し間違いの途中で Hermes が動かないよう、<b>判断の合図はこのボタンだけ</b>にしています。押した時点の内容で Hermes が動きます（1分以内）。";
-  s4.appendChild(h4);
-  const srow = $("div","row");
-  const sbtn = $("button","act p"); sbtn.textContent = "✅ 確認した（これで判断して）";
-  const lastSign = localStorage.getItem("last_sign") || "";
-  const sstat = $("div","meta"); sstat.textContent = lastSign ? ("最終: " + lastSign) : "まだ押していません";
-  sbtn.onclick = async () => {
-    sbtn.disabled = true; setBusy("送っています…");
-    try{
-      const n = new Date(); const pad = x => String(x).padStart(2,"0");
-      const stamp = n.getFullYear()+"-"+pad(n.getMonth()+1)+"-"+pad(n.getDate())+" "+pad(n.getHours())+":"+pad(n.getMinutes());
-      await api("/blocks/"+SIGN_PAGE+"/children", {method:"PATCH", body:JSON.stringify({
-        children:[{"object":"block","type":"paragraph","paragraph":{"rich_text":[
-          {"type":"text","text":{"content":"読了: "+stamp}}]}}]})});
-      try{ localStorage.setItem("last_sign", stamp); }catch(e){}
-      sstat.textContent = "最終: " + stamp;
-      setBusy("送りました。1分以内に確認します。");
-    }catch(e){ setBusy("失敗: "+e.message); }
-    sbtn.disabled = false;
-  };
-  srow.appendChild(sbtn);
-  s4.appendChild(srow);
-  s4.appendChild(sstat);
-  app.appendChild(s4);
 
   setBusy("");
 }
