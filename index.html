@@ -186,11 +186,12 @@ async function load(){
       if(!/^\d{4}-\d{2}-\d{2}/.test(lines[i])) continue;
       for(let j=i+1;j<lines.length;j++){
         if(/^\d{4}-\d{2}-\d{2}/.test(lines[j])) break;
-        if(lines[j].replace(/^-\s*/,"").startsWith("対応:")){ handledReqs.push(lines[i]); break; }
+        if(lines[j].replace(/^-\s*/,"").startsWith("対応:")){
+          handledReqs.push({request: lines[i], answer: lines[j].replace(/^-\s*対応:\s*/,"")}); break; }
       }
     }
   }catch(e){}
-  const isHandled = (name) => handledReqs.some(h => h.includes(name));
+  const findHandled = (name) => handledReqs.find(h => h.request.includes(name));
   const today = new Date().toISOString().slice(0,10);
   const late = openTasks.filter(t => { const d=txt(t.properties["期限"]); return d && d<=today; }).length;
 
@@ -308,6 +309,7 @@ async function load(){
     const due = txt(t.properties["期限"]);
     const pri = txt(t.properties["優先度"]);
     const memo = txt(t.properties["メモ"]);
+    const handled = findHandled(name);
     const isLate = due && due<=today;
     const top=$("div","row"); top.style.margin="0 0 2px";
     top.innerHTML = (isLate?'<span class="chip u">期限 '+esc(due)+'</span>'
@@ -326,7 +328,9 @@ async function load(){
           setBusy("詳細を読み込み中…"); db.disabled = true;
           try{
             const bb = await api("/blocks/"+t.id+"/children?page_size=50");
-            detail.innerHTML = blocksToHtml(bb.results) || '<div class="sub">詳細はまだありません。</div>';
+            let dhtml = blocksToHtml(bb.results);
+            if(handled) dhtml = '<div class="cnow">Hermes の回答: '+esc(handled.answer)+'</div>' + dhtml;
+            detail.innerHTML = dhtml || '<div class="sub">詳細はまだありません。</div>';
           }catch(e){ detail.innerHTML = '<div class="sub">詳細を読み込めませんでした。</div>'; }
           detail.dataset.loaded="1"; db.disabled = false; setBusy("");
         }
@@ -355,8 +359,8 @@ async function load(){
     const markAsked = (msg) => { bq.textContent="依頼済み ✓"; bq.disabled=true; bq.classList.add("done");
       qline.textContent = msg || "送信を確認しました。Hermes が次回の確認で拾って、Discord でお返事します。";
       qline.style.display="block"; };
-    if(localStorage.getItem(qkey) && isHandled(name)){
-      markAsked("Hermes が調べました。結果は「🔧 アプリの改善メモ」に書いてあります。"); bq.textContent="対応済み ✓"; }
+    if(localStorage.getItem(qkey) && handled){
+      markAsked("Hermes が調べました。結果は下の「詳細を開く」で読めます。"); bq.textContent="調べました ✓"; }
     else if(localStorage.getItem(qkey)){ markAsked("送信済みです。Hermes が次の確認（1分ごと）で拾います。"); }
     else { bq.textContent="調べてもらう"; }
     bq.onclick = async () => {
@@ -391,7 +395,7 @@ async function load(){
   const s4 = $("section");
   s4.innerHTML = '<div class="head"><h2>ここまで確認した</h2></div>';
   const srow = $("div","row");
-  const sbtn = $("button","sign"); sbtn.textContent = "✅ 確認した（これで判断して）";
+  const sbtn = $("button","sign"); sbtn.textContent = "✅ 確認";
   const lastSign = localStorage.getItem("last_sign") || "";
   const sstat = $("div","meta"); sstat.textContent = lastSign ? ("最終: " + lastSign) : "まだ押していません";
   sbtn.onclick = async () => {
@@ -426,6 +430,8 @@ async function load(){
       try{ localStorage.setItem("last_sign", stamp); }catch(e){}
       sstat.textContent = "最終: " + stamp;
       setBusy("送りました。1分以内に確認します。");
+      sbtn.textContent = "✅ 確認済み";
+      return; // 押したあとはグレーアウトしたまま（再読み込みで戻る）
     }catch(e){ setBusy("失敗: "+e.message); }
     sbtn.disabled = false;
   };
@@ -438,7 +444,7 @@ async function load(){
   const s3 = $("section");
   s3.innerHTML = '<div class="head"><h2>改善したい点</h2></div>';
   const h3 = $("div","hint");
-  h3.textContent = "使いにくいところ、欲しい機能、こう動いてほしい、などを書いて送ってください。書いて送ったあと、上の「✅ 確認した（これで判断して）」を押すと、その時点の内容で Hermes が動きます。対応済みのメモはここには出ません。";
+  h3.textContent = "使いにくいところ、欲しい機能、こう動いてほしい、などを書いて送ってください。書いて送ったあと、上の「✅ 確認」を押すと、その時点の内容で Hermes が動きます。対応済みのメモはここには出ません。";
   s3.appendChild(h3);
   const fbox = $("div","cwrap");
   const ftext = document.createElement("textarea");
