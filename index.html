@@ -296,6 +296,7 @@ async function load(){
     card.appendChild(top);
     const t = $("div","title"); t.textContent = title.replace(/^#\S+\s*/,"");
     card.appendChild(t);
+    if(memo2){ const cb = $("div","cnow"); cb.textContent = "あなたのコメント: " + memo2; card.appendChild(cb); }
     const body = $("div","body"); body.innerHTML = '<div class="sub">読み込み中…</div>';
     card.appendChild(body);
     // コメント欄 → ボタン
@@ -497,7 +498,7 @@ async function load(){
                      (pri?'<span class="chip">優先度 '+esc(pri)+'</span>':"");
     card.appendChild(top);
     const tt=$("div","title"); tt.textContent = name; card.appendChild(tt);
-    if(memo){ const m=$("div","meta"); m.textContent = memo; card.appendChild(m); }
+    if(memo){ const m=$("div","cnow"); m.textContent = "詳細メモ: " + memo; card.appendChild(m); }
 
     // 詳細（タスクのページ本文をトグルで開く）
     const detail = $("div","body"); detail.style.display="none";
@@ -509,7 +510,10 @@ async function load(){
           try{
             const bb = await api("/blocks/"+t.id+"/children?page_size=50");
             let dhtml = blocksToHtml(bb.results);
-            if(handled) dhtml = '<div class="cnow">Hermes の回答: '+esc(handled.answer)+'</div>' + dhtml;
+            if(handled){
+              const ans = (handled.answer||"").replace(/[（(]Discord で回答[）)]/g,"").replace(/^[\d\-\/ :]+/,"").trim();
+              if(ans) dhtml = '<div class="cnow">Hermes の回答: '+esc(ans)+'</div>' + dhtml;
+            }
             detail.innerHTML = dhtml || '<div class="sub">詳細はまだありません。</div>';
           }catch(e){ detail.innerHTML = '<div class="sub">詳細を読み込めませんでした。</div>'; }
           detail.dataset.loaded="1"; db.disabled = false; setBusy("");
