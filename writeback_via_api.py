@@ -172,8 +172,22 @@ def main():
                     fid = DRIVE_ROOT
                     for p in rel.split("/"):
                         fid = ensure_folder(fid, p, folder_cache)
-                    upload(fid, fn, lp, drv["id"] if drv else None)
+                    last = None
+                    for attempt in range(5):
+                        try:
+                            upload(fid, fn, lp, drv["id"] if drv else None)
+                            last = None
+                            break
+                        except urllib.error.HTTPError as e:
+                            last = e
+                            if e.code in (403, 429, 500, 503):
+                                time.sleep(2 * (attempt + 1))
+                                continue
+                            raise
+                    if last is not None:
+                        raise last
                     copied += 1
+                    time.sleep(0.12)
                 except Exception as exc:
                     failed += 1
                     print("FAIL", key, type(exc).__name__, str(exc)[:120])

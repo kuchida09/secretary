@@ -131,6 +131,7 @@ function setBusy(msg){
 async function api(path, opts={}){
   const res = await fetch("https://api.notion.com/v1"+path, {
     ...opts,
+    cache: "no-store",
     headers: { "Authorization":"Bearer "+token, "Notion-Version":NV, "Content-Type":"application/json", ...(opts.headers||{}) }
   });
   if(!res.ok){ throw new Error(res.status+" "+((await res.json().catch(()=>({}))).message||"") ); }
@@ -296,7 +297,7 @@ async function load(){
     card.appendChild(top);
     const t = $("div","title"); t.textContent = title.replace(/^#\S+\s*/,"");
     card.appendChild(t);
-    if(memo2){ const cb = $("div","cnow"); cb.textContent = "あなたのコメント: " + memo2; card.appendChild(cb); }
+    if(memo2){ const cb = $("div","cnow"); cb.textContent = "内容・コメント: " + memo2; card.appendChild(cb); }
     const body = $("div","body"); body.innerHTML = '<div class="sub">読み込み中…</div>';
     card.appendChild(body);
     // コメント欄 → ボタン
@@ -458,11 +459,11 @@ async function load(){
         const loadBody = async () => {
           try{
             if(/\.html?$/i.test(src)){
-              const res = await fetch("./" + src.replace(/^\/+/, ""));
+              const res = await fetch("./" + src.replace(/^\/+/, ""), {cache:"no-store"});
               if(!res.ok) throw new Error(res.status);
               body.innerHTML = await res.text();
             } else if(/\.md$/i.test(src)){
-              const res = await fetch("./" + src.replace(/^\/+/, ""));
+              const res = await fetch("./" + src.replace(/^\/+/, ""), {cache:"no-store"});
               if(!res.ok) throw new Error(res.status);
               body.className = "md"; body.innerHTML = mdToHtml(await res.text());
             } else {
@@ -514,7 +515,7 @@ async function load(){
               const ans = (handled.answer||"").replace(/[（(]Discord で回答[）)]/g,"").replace(/^[\d\-\/ :]+/,"").trim();
               if(ans) dhtml = '<div class="cnow">Hermes の回答: '+esc(ans)+'</div>' + dhtml;
             }
-            detail.innerHTML = dhtml || '<div class="sub">詳細はまだありません。</div>';
+            detail.innerHTML = dhtml || '<div class="sub">このタスクにはまだ詳細がありません（結果は Discord の該当メッセージにあります）。</div>';
           }catch(e){ detail.innerHTML = '<div class="sub">詳細を読み込めませんでした。</div>'; }
           detail.dataset.loaded="1"; db.disabled = false; setBusy("");
         }
