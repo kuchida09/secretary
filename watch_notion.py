@@ -23,6 +23,8 @@ def jst_now():
 
 REVIEW_DS = "60242da1-b213-4118-ae82-f8782a816cb2"
 TASKS_DS = "ef21b283-795e-4fec-8311-2e40c4cb0c57"
+REPORT_DS = "a54924f2-1ca7-44f5-b5d1-47576d368aff"
+QA_DS = "8d58d65b-8d15-4012-866a-772ee3942500"
 MEMO_PAGE = "3fde71bc-ecb6-81af-8624-ebb86a23bd14"
 SIGN_PAGE = "3fde71bc-ecb6-81f8-b7e0-f3408a247d50"
 KEY_PATHS = [
@@ -95,6 +97,14 @@ def snapshot(h):
     for row in post(h, f"/data_sources/{TASKS_DS}/query", {"page_size": 100}).get("results", []):
         p = row["properties"]
         snap["t:" + row["id"]] = "|".join([txt(p.get("名前")), txt(p.get("状態")), txt(p.get("完了日"))])
+    # レポート（意思決定の枠組み）
+    for row in post(h, f"/data_sources/{REPORT_DS}/query", {"page_size": 50}).get("results", []):
+        p = row["properties"]
+        snap["rep:" + row["id"]] = "|".join([txt(p.get("件名")), txt(p.get("状態")), txt(p.get("修正メモ"))])
+    # 確認事項（アプリで答えるもの）
+    for row in post(h, f"/data_sources/{QA_DS}/query", {"page_size": 100}).get("results", []):
+        p = row["properties"]
+        snap["qa:" + row["id"]] = "|".join([txt(p.get("質問")), txt(p.get("状態")), txt(p.get("回答"))])
     reqs = [t for t in [("".join(x.get("plain_text", "") for x in b["paragraph"]["rich_text"]).strip())
                         for b in get(h, f"/blocks/{MEMO_PAGE}/children?page_size=100").get("results", [])
                         if b.get("type") == "paragraph"] if t[:4].isdigit()]
@@ -142,8 +152,8 @@ def main():
         if k in ("sign", "memo"):
             continue
         if now.get(k) != old.get(k):
-            label = "提案" if k.startswith("r:") else "タスク"
-            print(f"{label}|{k[2:]}|{(old.get(k) or '（新規）')} → {now.get(k)}")
+            label = {"r:": "提案", "t:": "タスク", "rep:": "レポート", "qa:": "確認事項"}.get(k[:4], "その他")
+            print(f"{label}|{k.split(':',1)[1][:8]}|{(old.get(k) or '（新規）')} → {now.get(k)}")
     if now.get("memo") != old.get("memo"):
         new_reqs = [r for r in now.get("memo", "").split("||") if r and r not in (old.get("memo") or "")]
         for r in new_reqs:
