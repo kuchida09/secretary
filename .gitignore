@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+# 実行時の状態（端末に残すが、公開リポジトリには入れない）
+watch_notion_state.json
+watch_notion_lastwake
+wake_log.txt
+# 使い捨ての作業ファイル
+_*
+tmp_*
