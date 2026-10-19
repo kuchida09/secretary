@@ -499,7 +499,7 @@ async function load(){
                      (pri?'<span class="chip">優先度 '+esc(pri)+'</span>':"");
     card.appendChild(top);
     const tt=$("div","title"); tt.textContent = name; card.appendChild(tt);
-    if(memo){ const m=$("div","cnow"); m.textContent = "詳細メモ: " + memo; card.appendChild(m); }
+    // メモはカード上に単独で出さず、「詳細を開く」の中にまとめて表示する（二重表示を防ぐ）
 
     // 詳細（タスクのページ本文をトグルで開く）
     const detail = $("div","body"); detail.style.display="none";
@@ -511,10 +511,8 @@ async function load(){
           try{
             const bb = await api("/blocks/"+t.id+"/children?page_size=50");
             let dhtml = blocksToHtml(bb.results);
-            if(handled){
-              const ans = (handled.answer||"").replace(/[（(]Discord で回答[）)]/g,"").replace(/^[\d\-\/ :]+/,"").trim();
-              if(ans) dhtml = '<div class="cnow">Hermes の回答: '+esc(ans)+'</div>' + dhtml;
-            }
+            // メモを詳細の先頭にまとめる（カード上の二重表示をやめた分をここに集約）
+            if(memo) dhtml = '<div class="cnow">メモ: '+esc(memo)+'</div>' + dhtml;
             detail.innerHTML = dhtml || '<div class="sub">このタスクにはまだ詳細がありません（結果は Discord の該当メッセージにあります）。</div>';
           }catch(e){ detail.innerHTML = '<div class="sub">詳細を読み込めませんでした。</div>'; }
           detail.dataset.loaded="1"; db.disabled = false; setBusy("");
