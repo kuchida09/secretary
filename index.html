@@ -89,6 +89,8 @@ const REVIEW = "60242da1-b213-4118-ae82-f8782a816cb2";
 const TASKS  = "ef21b283-795e-4fec-8311-2e40c4cb0c57";
 const MEMO_PAGE = "3fde71bc-ecb6-81af-8624-ebb86a23bd14";
 const SIGN_PAGE = "3fde71bc-ecb6-81f8-b7e0-f3408a247d50";
+const REPORT_DS = "a54924f2-1ca7-44f5-b5d1-47576d368aff";
+const QA_DS = "8d58d65b-8d15-4012-866a-772ee3942500";
 const NV = "2025-09-03";
 const app = document.getElementById("app");
 const foot = document.getElementById("foot");
@@ -297,6 +299,96 @@ async function load(){
     }).catch(()=>{ body.innerHTML = ""; });
   }
   app.appendChild(s1);
+
+  // ===== 📑 レポートと確認（意思決定の枠組み）=====
+  const s5 = $("section");
+  const h5 = $("div","head"); h5.innerHTML = "<h2>📑 レポートと確認</h2>";
+  const n5 = $("span","n"); h5.appendChild(n5); s5.appendChild(h5);
+  app.appendChild(s5);
+  try{
+    const [rep, qa] = await Promise.all([
+      api("/data_sources/"+REPORT_DS+"/query", {method:"POST", body:JSON.stringify({page_size:20})}),
+      api("/data_sources/"+QA_DS+"/query", {method:"POST", body:JSON.stringify({page_size:60})})
+    ]);
+    const reports = (rep.results||[]);
+    const qas = (qa.results||[]).filter(r => txt(r.properties["状態"]) !== "取り下げ");
+    n5.textContent = "レポート "+reports.length+" / 確認 "+qas.length;
+    if(!reports.length && !qas.length){ s5.classList.add("gone"); }
+
+    // 確認事項（答えるところ）
+    if(qas.length){
+      const h = $("div","sub"); h.textContent="確認事項（答えてください）"; s5.appendChild(h);
+      for(const r of qas){
+        const p = r.properties;
+        const card = $("div","card");
+        const t = $("div","title"); t.textContent = txt(p["質問"]); card.appendChild(t);
+        const meta = $("div","meta");
+        meta.textContent = [txt(p["種類"]), "対象: "+txt(p["対象"]), txt(p["状態"])].filter(Boolean).join(" / ");
+        card.appendChild(meta);
+        const ta = document.createElement("textarea");
+        ta.className = "cmt"; ta.rows = 2;
+        ta.placeholder = "ここに回答を書く（例: 2は筆頭です／5はなし）";
+        const dkey = "draft_q_"+r.id;
+        ta.value = txt(p["回答"]) || localStorage.getItem(dkey) || "";
+        ta.oninput = () => { try{ localStorage.setItem(dkey, ta.value); }catch(e){} };
+        card.appendChild(ta);
+        const row = $("div","row");
+        const save = $("button","act go"); save.textContent = "回答を保存";
+        save.onclick = async () => {
+          setBusy("保存中…");
+          try{
+            await api("/pages/"+r.id, {method:"PATCH", body:JSON.stringify({properties:{
+              "回答":{"rich_text": ta.value.trim() ? [{"text":{"content":ta.value.trim()}}] : []},
+              "状態":{"select":{"name":"回答済み"}}}})});
+            try{ localStorage.removeItem(dkey); }catch(e){}
+            card.classList.add("gone"); setBusy("回答を保存しました");
+          }catch(e){ setBusy("失敗: "+e.message); }
+        };
+        const drop = $("button","act"); drop.textContent = "取り下げ";
+        drop.onclick = async () => {
+          if(!confirm("この確認事項を取り下げますか？")) return;
+          setBusy("更新中…");
+          try{
+            await api("/pages/"+r.id, {method:"PATCH", body:JSON.stringify({properties:{"状態":{"select":{"name":"取り下げ"}}}})});
+            card.classList.add("gone"); setBusy("取り下げました");
+          }catch(e){ setBusy("失敗: "+e.message); }
+        };
+        row.appendChild(save); row.appendChild(drop); card.appendChild(row);
+        s5.appendChild(card);
+      }
+    }
+
+    // レポート（読むところ）
+    if(reports.length){
+      const h = $("div","sub"); h.textContent="レポート"; s5.appendChild(h);
+      for(const r of reports){
+        const p = r.properties;
+        const card = $("div","card");
+        const t = $("div","title"); t.textContent = txt(p["件名"]); card.appendChild(t);
+        const meta = $("div","meta");
+        meta.textContent = [txt(p["種類"]), txt(p["状態"]), txt(p["提示日"])].filter(Boolean).join(" / ");
+        card.appendChild(meta);
+        const db = $("button","act q"); db.textContent = "内容を読む";
+        const body = $("div","body"); body.style.display = "none";
+        db.onclick = async () => {
+          if(body.style.display === "none"){
+            if(!body.dataset.loaded){
+              setBusy("内容を読み込み中…"); db.disabled = true;
+              try{
+                const bb = await api("/blocks/"+r.id+"/children?page_size=100");
+                body.innerHTML = blocksToHtml(bb.results);
+                body.dataset.loaded = "1";
+              }catch(e){ body.innerHTML = "（読み込めませんでした）"; }
+              db.disabled = false; setBusy("");
+            }
+            body.style.display = "block"; db.textContent = "内容を閉じる";
+          } else { body.style.display = "none"; db.textContent = "内容を読む"; }
+        };
+        card.appendChild(db); card.appendChild(body);
+        s5.appendChild(card);
+      }
+    }
+  }catch(e){ s5.classList.add("gone"); }
 
   // ---- タスク ----
   const s2 = $("section");
