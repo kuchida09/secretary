@@ -105,7 +105,9 @@ def upload(parent_id, name, path, existing_id):
         return "dry"
     boundary = "b" + uuid.uuid4().hex
     meta = {"name": name}
-    if existing_id:
+    if not existing_id:
+        # 新規ファイルは親フォルダを指定して作成する。
+        # 既存ファイルの更新（PATCH）で parents を送ると Drive が 403 を返すため、更新時は付けない。
         meta["parents"] = [parent_id]
     body = b""
     body += ("--" + boundary + "\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n" +
