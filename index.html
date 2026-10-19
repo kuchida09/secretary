@@ -451,33 +451,29 @@ async function load(){
         const meta = $("div","meta");
         meta.textContent = [txt(p["種類"]), txt(p["状態"]), txt(p["提示日"])].filter(Boolean).join(" / ");
         card.appendChild(meta);
-        const db = $("button","act q"); db.textContent = "内容を読む";
-        const body = $("div","body"); body.style.display = "none";
-        const mdPath = (txt(p["場所"]) || "").trim();
-        const useMd = /\.md$/i.test(mdPath);
-        db.onclick = async () => {
-          if(body.style.display === "none"){
-            if(!body.dataset.loaded){
-              setBusy("内容を読み込み中…"); db.disabled = true;
-              try{
-                if(useMd){
-                  const res = await fetch("./" + mdPath.replace(/^\/+/, ""));
-                  if(!res.ok) throw new Error(res.status);
-                  body.className = "md";
-                  body.innerHTML = mdToHtml(await res.text());
-                } else {
-                  const bb = await api("/blocks/"+r.id+"/children?page_size=100");
-                  body.innerHTML = blocksToHtml(bb.results);
-                }
-                body.dataset.loaded = "1";
-              }catch(e){ body.innerHTML = "（読み込めませんでした）"; }
-              db.disabled = false; setBusy("");
+        // 本文はボタンなしでそのまま表示（HTML をそのまま差し込む）
+        const body = $("div","body"); body.style.display = "block";
+        const src = (txt(p["場所"]) || "").trim();
+        const loadBody = async () => {
+          try{
+            if(/\.html?$/i.test(src)){
+              const res = await fetch("./" + src.replace(/^\/+/, ""));
+              if(!res.ok) throw new Error(res.status);
+              body.innerHTML = await res.text();
+            } else if(/\.md$/i.test(src)){
+              const res = await fetch("./" + src.replace(/^\/+/, ""));
+              if(!res.ok) throw new Error(res.status);
+              body.className = "md"; body.innerHTML = mdToHtml(await res.text());
+            } else {
+              const bb = await api("/blocks/"+r.id+"/children?page_size=100");
+              body.innerHTML = blocksToHtml(bb.results);
             }
-            body.style.display = "block"; db.textContent = "内容を閉じる";
-          } else { body.style.display = "none"; db.textContent = "内容を読む"; }
+          }catch(e){ body.innerHTML = "（本文を読み込めませんでした）"; }
         };
-        card.appendChild(db); card.appendChild(body);
+        body.textContent = "読み込み中…";
+        card.appendChild(body);
         s5.appendChild(card);
+        loadBody();
       }
     }
   }catch(e){ s5.classList.add("gone"); }
