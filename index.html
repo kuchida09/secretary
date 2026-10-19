@@ -86,7 +86,8 @@
     background:var(--alt);border-radius:10px;padding:9px 11px}
   .hint b{color:var(--ink)}
   .cnow{font-size:12.5px;color:var(--ink);background:var(--accent-soft);border-radius:8px;padding:7px 10px;margin-top:8px}
-  .stat{font-size:12.5px;color:var(--done);background:var(--done-soft);border-radius:8px;padding:7px 10px;margin-top:8px;display:none}
+  .stat{font-size:11.5px;color:var(--done);background:var(--done-soft);border-radius:8px;padding:5px 9px;margin-top:6px;display:none}
+  button.act.det{background:var(--accent-soft);border-color:transparent;color:var(--accent)}
   .meta{font-size:11.5px;color:var(--soft);margin-top:6px}
   .empty{font-size:13.5px;color:var(--soft);padding:10px 2px}
   #setup{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
@@ -503,7 +504,7 @@ async function load(){
 
     // 詳細（タスクのページ本文をトグルで開く）
     const detail = $("div","body"); detail.style.display="none";
-    const db = $("button","act q"); db.textContent="詳細を開く";
+    const db = $("button","act q det"); db.textContent="詳細を開く";
     db.onclick = async () => {
       if(detail.style.display==="none"){
         if(!detail.dataset.loaded){
@@ -539,11 +540,13 @@ async function load(){
     const bq=$("button","act");
     const qkey = "asked_"+t.id;
     const qline = $("div","stat");
-    const markAsked = (msg) => { bq.textContent="依頼済み ✓"; bq.disabled=true; bq.classList.add("done");
+    const markAsked = (msg, compact) => { bq.textContent="依頼済み ✓"; bq.disabled=true; bq.classList.add("done");
+      if(compact){ qline.style.display="none"; return; }
       qline.textContent = msg || "送信を確認しました。Hermes が次回の確認で拾って、Discord でお返事します。";
       qline.style.display="block"; };
     if(localStorage.getItem(qkey) && handled){
-      markAsked("Hermes が調べました。結果は下の「詳細を開く」で読めます。"); bq.textContent="調べました ✓"; }
+      // 「調べました」は欄を増やさず、詳細ボタンの色で示す（場所を取らない）
+      markAsked("", true); bq.textContent="調べました ✓"; db.classList.add("done"); }
     else if(localStorage.getItem(qkey)){ markAsked("送信済みです。Hermes が次の確認（1分ごと）で拾います。"); }
     else { bq.textContent="調べてもらう"; }
     bq.onclick = async () => {
@@ -567,8 +570,44 @@ async function load(){
       }
     };
     row.appendChild(b); row.appendChild(db); row.appendChild(bq);
+    // リマインド（期限を明日／来週に）
+    const mkDue = (label, days) => {
+      const btn = $("button","act"); btn.textContent = label;
+      btn.onclick = async () => {
+        btn.disabled = true; setBusy("期限を設定しています…");
+        const d = new Date(); d.setDate(d.getDate()+days); const p = x => String(x).padStart(2,"0");
+        const ds = d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate());
+        try{ await api("/pages/"+t.id, {method:"PATCH", body:JSON.stringify({properties:{"期限":{"date":{"start":ds}}}})});
+          setBusy("期限を "+ds+" にしました（スマホへの通知はカレンダー経由です）"); }
+        catch(e){ setBusy("失敗: "+e.message); btn.disabled=false; }
+      };
+      return btn;
+    };
+    row.appendChild(mkDue("明日に", 1));
+    row.appendChild(mkDue("来週に", 7));
     card.appendChild(row);
     card.appendChild(qline);
+    // タスクへのコメント（メモ欄に保存する）
+    const cwrap = $("div","cwrap");
+    const cta = document.createElement("textarea"); cta.className = "cmt"; cta.rows = 2;
+    cta.placeholder = "このタスクへのコメント（メモ欄に保存します）";
+    const tkey = "tdraft_"+t.id;
+    cta.value = (localStorage.getItem(tkey) !== null) ? localStorage.getItem(tkey) : (memo || "");
+    cta.oninput = () => { try{ localStorage.setItem(tkey, cta.value); }catch(e){} };
+    cwrap.appendChild(cta);
+    const crow = $("div","row");
+    const csave = $("button","act"); csave.textContent = "コメントを保存";
+    csave.onclick = async () => {
+      csave.disabled = true; setBusy("保存しています…");
+      try{ await api("/pages/"+t.id, {method:"PATCH", body:JSON.stringify({properties:{
+            "メモ":{"rich_text": cta.value.trim() ? [{"type":"text","text":{"content":cta.value.trim()}}] : []}}})});
+        try{ localStorage.removeItem(tkey); }catch(e){}
+        setBusy("コメントを保存しました"); }
+      catch(e){ setBusy("失敗: "+e.message); }
+      csave.disabled = false;
+    };
+    crow.appendChild(csave); cwrap.appendChild(crow);
+    card.appendChild(cwrap);
     card.appendChild(detail);
     s2.appendChild(card);
   }
