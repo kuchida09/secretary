@@ -51,6 +51,11 @@
   button.act.q{background:transparent}
   button.act:disabled{opacity:.45}
   button.act.done{background:var(--done-soft);border-color:var(--done);color:var(--done);opacity:1}
+  textarea.cmt{width:100%;box-sizing:border-box;font-family:inherit;font-size:14px;line-height:1.5;
+    padding:10px 11px;border:1px solid var(--line);border-radius:11px;background:var(--paper);color:var(--ink);
+    min-height:72px;margin:9px 0 2px;resize:vertical}
+  .row{margin-top:8px;display:flex;gap:8px;flex-wrap:wrap}
+  .sub{font-size:13px;color:var(--soft);margin:14px 0 6px;font-weight:600}
   button.sign{width:100%;font-family:inherit;font-size:15.5px;font-weight:700;letter-spacing:.02em;
     padding:15px 18px;border:none;border-radius:999px;color:#fff;
     background:linear-gradient(135deg,var(--accent),#D9835B);
@@ -325,6 +330,18 @@ async function load(){
         const meta = $("div","meta");
         meta.textContent = [txt(p["種類"]), "対象: "+txt(p["対象"]), txt(p["状態"])].filter(Boolean).join(" / ");
         card.appendChild(meta);
+        const det = txt(p["詳細"]);
+        if(det){
+          const dbtn = $("button","act q"); dbtn.textContent = "詳細を開く";
+          const dbody = $("div","body"); dbody.style.display = "none";
+          dbody.textContent = det;
+          dbtn.onclick = () => {
+            const open = dbody.style.display !== "none";
+            dbody.style.display = open ? "none" : "block";
+            dbtn.textContent = open ? "詳細を開く" : "詳細を閉じる";
+          };
+          card.appendChild(dbtn); card.appendChild(dbody);
+        }
         const ta = document.createElement("textarea");
         ta.className = "cmt"; ta.rows = 2;
         ta.placeholder = "ここに回答を書く（例: 2は筆頭です／5はなし）";
@@ -333,7 +350,7 @@ async function load(){
         ta.oninput = () => { try{ localStorage.setItem(dkey, ta.value); }catch(e){} };
         card.appendChild(ta);
         const row = $("div","row");
-        const save = $("button","act go"); save.textContent = "回答を保存";
+        const save = $("button","act p"); save.textContent = "回答を保存";
         save.onclick = async () => {
           setBusy("保存中…");
           try{
