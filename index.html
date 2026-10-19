@@ -56,6 +56,20 @@
     min-height:72px;margin:9px 0 2px;resize:vertical}
   .row{margin-top:8px;display:flex;gap:8px;flex-wrap:wrap}
   .sub{font-size:13px;color:var(--soft);margin:14px 0 6px;font-weight:600}
+  .md{font-size:14px;line-height:1.75;color:var(--ink)}
+  .md h2{font-size:15.5px;margin:16px 0 4px;border-bottom:1px solid var(--line);padding-bottom:3px}
+  .md h3{font-size:14.5px;margin:13px 0 3px}
+  .md h4{font-size:13.5px;margin:11px 0 2px}
+  .md p{margin:6px 0}
+  .md ul,.md ol{padding-left:1.2em;margin:6px 0}
+  .md li{margin:3px 0}
+  .md table{border-collapse:collapse;width:100%;font-size:12.5px;margin:8px 0;display:block;overflow-x:auto}
+  .md th,.md td{border:1px solid var(--line);padding:5px 7px;text-align:left;vertical-align:top}
+  .md th{background:var(--done-soft)}
+  .md code{background:var(--done-soft);padding:1px 4px;border-radius:5px;font-size:12.5px}
+  .md pre{background:var(--done-soft);padding:9px;border-radius:9px;overflow-x:auto;font-size:12.5px}
+  .md blockquote{border-left:3px solid var(--accent);margin:8px 0;padding:2px 0 2px 10px;color:var(--soft)}
+  .md a{color:var(--accent)}
   button.sign{width:100%;font-family:inherit;font-size:15.5px;font-weight:700;letter-spacing:.02em;
     padding:15px 18px;border:none;border-radius:999px;color:#fff;
     background:linear-gradient(135deg,var(--accent),#D9835B);
@@ -151,6 +165,56 @@ function blocksToHtml(blocks){
   }
   if(li) out += "</ul>";
   return out;
+}
+
+function mdToHtml(md){
+  const e2 = s => (s||"").replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+  const inline = s => e2(s)
+    .replace(/`([^`]+)`/g,"<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g,"<b>$1</b>")
+    .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+  const lines = (md||"").split(/\r?\n/);
+  let out=[], i=0, list=null, inCode=false, buf=[];
+  const closeList = () => { if(list){ out.push("</"+list+">"); list=null; } };
+  while(i<lines.length){
+    const l = lines[i];
+    if(l.trim().slice(0,3)==="```"){
+      if(inCode){ out.push("<pre><code>"+e2(buf.join("\n"))+"</code></pre>"); buf=[]; inCode=false; }
+      else { closeList(); inCode=true; }
+      i++; continue;
+    }
+    if(inCode){ buf.push(l); i++; continue; }
+    if(/^\s*$/.test(l)){ closeList(); i++; continue; }
+    if(/^\|.*\|/.test(l) && i+1<lines.length && /^\|[\s:|-]+\|/.test(lines[i+1])){
+      closeList();
+      const cells = s => s.trim().replace(/^\||\|$/g,"").split("|").map(x=>x.trim());
+      let html = "<table><thead><tr>"+cells(l).map(c=>"<th>"+inline(c)+"</th>").join("")+"</tr></thead><tbody>";
+      i += 2;
+      while(i<lines.length && /^\|.*\|/.test(lines[i])){ html += "<tr>"+cells(lines[i]).map(c=>"<td>"+inline(c)+"</td>").join("")+"</tr>"; i++; }
+      out.push(html+"</tbody></table>"); continue;
+    }
+    let m;
+    if(m = l.match(/^(#{1,6})\s+(.*)$/)){
+      closeList(); const lv=Math.min(4, Math.max(2, m[1].length+1));
+      out.push("<h"+lv+">"+inline(m[2])+"</h"+lv+">"); i++; continue;
+    }
+    if(/^\s*(---|\*\*\*|___)\s*$/.test(l)){ closeList(); out.push("<hr>"); i++; continue; }
+    if(m = l.match(/^\s*[-*+]\s+(.*)$/)){
+      if(list!=="ul"){ closeList(); out.push("<ul>"); list="ul"; }
+      out.push("<li>"+inline(m[1])+"</li>"); i++; continue;
+    }
+    if(m = l.match(/^\s*\d+[.)]\s+(.*)$/)){
+      if(list!=="ol"){ closeList(); out.push("<ol>"); list="ol"; }
+      out.push("<li>"+inline(m[1])+"</li>"); i++; continue;
+    }
+    if(m = l.match(/^>\s?(.*)$/)){
+      closeList(); out.push("<blockquote>"+inline(m[1])+"</blockquote>"); i++; continue;
+    }
+    closeList(); out.push("<p>"+inline(l)+"</p>"); i++;
+  }
+  closeList();
+  if(inCode && buf.length) out.push("<pre><code>"+e2(buf.join("\n"))+"</code></pre>");
+  return out.join("");
 }
 
 async function load(){
@@ -389,13 +453,22 @@ async function load(){
         card.appendChild(meta);
         const db = $("button","act q"); db.textContent = "内容を読む";
         const body = $("div","body"); body.style.display = "none";
+        const mdPath = (txt(p["場所"]) || "").trim();
+        const useMd = /\.md$/i.test(mdPath);
         db.onclick = async () => {
           if(body.style.display === "none"){
             if(!body.dataset.loaded){
               setBusy("内容を読み込み中…"); db.disabled = true;
               try{
-                const bb = await api("/blocks/"+r.id+"/children?page_size=100");
-                body.innerHTML = blocksToHtml(bb.results);
+                if(useMd){
+                  const res = await fetch("./" + mdPath.replace(/^\/+/, ""));
+                  if(!res.ok) throw new Error(res.status);
+                  body.className = "md";
+                  body.innerHTML = mdToHtml(await res.text());
+                } else {
+                  const bb = await api("/blocks/"+r.id+"/children?page_size=100");
+                  body.innerHTML = blocksToHtml(bb.results);
+                }
                 body.dataset.loaded = "1";
               }catch(e){ body.innerHTML = "（読み込めませんでした）"; }
               db.disabled = false; setBusy("");
