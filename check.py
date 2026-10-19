@@ -53,7 +53,8 @@ def check_bash_syntax():
 
 
 def check_monitor_runs():
-    r = subprocess.run([sys.executable, str(HOME / "watch_notion.py")], capture_output=True, text=True, cwd=HOME)
+    env = dict(os.environ, WATCH_DRY="1")  # 検査は「見るだけ」。状態を書き換えない
+    r = subprocess.run([sys.executable, str(HOME / "watch_notion.py")], capture_output=True, text=True, cwd=HOME, env=env)
     first = (r.stdout or r.stderr).strip().split("\n")[0][:120]
     ok = r.returncode == 0 and (first.startswith("NOCHANGE") or first.startswith("CHANGED"))
     add("OK" if ok else "NG", "監視スクリプトが動く", first)
@@ -94,6 +95,8 @@ def check_no_secrets():
 def check_no_patient_info():
     hits = []
     for p in tracked_files():
+        if p.name == "check.py":  # 検査の検索語そのものが引っかかるので除く
+            continue
         if p.suffix.lower() not in (".md", ".txt", ".html", ".py", ".json", ".csv"):
             continue
         try:

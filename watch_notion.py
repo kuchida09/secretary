@@ -16,6 +16,9 @@ import pathlib
 import time
 import urllib.request
 
+# WATCH_DRY=1 のときは「見るだけ」で状態を書き換えない（検査スクリプトから呼ぶ用）。
+DRY = bool(os.environ.get("WATCH_DRY"))
+
 def jst_now():
     """日本時間の time.struct_time（実行環境が UTC でも正しく動くように）。"""
     return time.gmtime(time.time() + 9 * 3600)
@@ -131,10 +134,11 @@ def main():
         print("NOCHANGE")
         return
 
-    try:
-        sp.write_text(json.dumps(now, ensure_ascii=False), encoding="utf-8")
-    except Exception:
-        pass
+    if not DRY:
+        try:
+            sp.write_text(json.dumps(now, ensure_ascii=False), encoding="utf-8")
+        except Exception:
+            pass
 
     # AI を起こした直後の連鎖を防ぐ（AI 自身の書き込みで再び起きないように）。
     # 「読了」サインだけは利用者の明示操作なので連鎖の対象外。
@@ -147,12 +151,15 @@ def main():
     if not sign_changed and (time.time() - last_wake) < 480:
         print("NOCHANGE")
         return
-    try:
-        wakep.write_text(str(time.time()), encoding="utf-8")
-    except Exception:
-        pass
+    if not DRY:
+        try:
+            wakep.write_text(str(time.time()), encoding="utf-8")
+        except Exception:
+            pass
 
     print("CHANGED")
+    if DRY:
+        return
     try:
         logp = pathlib.Path(__file__).resolve().parent / "wake_log.txt"
         with logp.open("a", encoding="utf-8") as fh:
