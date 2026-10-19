@@ -136,6 +136,22 @@ def main():
     except Exception:
         pass
 
+    # AI を起こした直後の連鎖を防ぐ（AI 自身の書き込みで再び起きないように）。
+    # 「読了」サインだけは利用者の明示操作なので連鎖の対象外。
+    sign_changed = now.get("sign") != old.get("sign")
+    wakep = pathlib.Path(__file__).resolve().parent / "watch_notion_lastwake"
+    try:
+        last_wake = float(wakep.read_text(encoding="utf-8").strip())
+    except Exception:
+        last_wake = 0.0
+    if not sign_changed and (time.time() - last_wake) < 480:
+        print("NOCHANGE")
+        return
+    try:
+        wakep.write_text(str(time.time()), encoding="utf-8")
+    except Exception:
+        pass
+
     print("CHANGED")
     try:
         logp = pathlib.Path(__file__).resolve().parent / "wake_log.txt"
