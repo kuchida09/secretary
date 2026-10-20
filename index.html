@@ -694,6 +694,7 @@ async function load(){
     const mkDue = (label, days) => {
       const btn = $("button","act"); btn.textContent = label;
       dueBtns.push({btn: btn, label: label, days: days});
+      paintTop();
       btn.onclick = async () => {
         btn.disabled = true;
         const d = new Date(); d.setDate(d.getDate()+days); const p = x => String(x).padStart(2,"0");
