@@ -584,10 +584,20 @@ async function load(){
     };
 
     const row=$("div","row");
+    // コメントの保存状況をカード内に出す（ページ上部の一時メッセージは見落としやすいため）
+    let savedMemo = memo;
+    const cstat = $("div","stat");
     const b=$("button","act p"); b.textContent="完了";
     b.onclick = async () => { b.disabled=true; setBusy("完了にしています…");
-      try{ await api("/pages/"+t.id,{method:"PATCH",body:JSON.stringify({properties:{
-            "状態":{"select":{"name":"完了"}}, "完了日":{"date":{"start":today}} }})});
+      // 書きかけのコメントが残っていたら、完了と一緒に保存する（保存できたかを画面に出す）
+      const cv = (cta.value || "").trim();
+      const dirty = cv !== savedMemo;
+      try{ const props = {"状態":{"select":{"name":"完了"}}, "完了日":{"date":{"start":today}} };
+        if(dirty) props["メモ"] = {"rich_text": cv ? [{"type":"text","text":{"content":cv}}] : []};
+        await api("/pages/"+t.id,{method:"PATCH",body:JSON.stringify({properties: props})});
+        if(dirty){ savedMemo = cv; try{ localStorage.removeItem(tkey); }catch(e){}
+          cstat.textContent = (cv ? "書きかけのコメントも保存しました（"+stamp()+"）" : "コメントを空にしました（"+stamp()+"）");
+          cstat.style.display="block"; }
         card.classList.add("gone");
         const undo=$("button","act q"); undo.textContent="取り消す（未着手に戻す）";
         undo.onclick = async () => { undo.disabled=true; setBusy("戻しています…");
@@ -661,14 +671,22 @@ async function load(){
     const csave = $("button","act"); csave.textContent = "コメントを保存";
     csave.onclick = async () => {
       csave.disabled = true; setBusy("保存しています…");
+      const v = cta.value.trim();
       try{ await api("/pages/"+t.id, {method:"PATCH", body:JSON.stringify({properties:{
-            "メモ":{"rich_text": cta.value.trim() ? [{"type":"text","text":{"content":cta.value.trim()}}] : []}}})});
-        try{ localStorage.removeItem(tkey); }catch(e){}
+            "メモ":{"rich_text": v ? [{"type":"text","text":{"content":v}}] : []}}})});
+        // 本当に保存されたかをページを読み直して確かめてから「保存済み」を出す
+        const chk = await api("/pages/"+t.id);
+        if(txt(chk.properties["メモ"]) !== v) throw new Error("確認できませんでした");
+        savedMemo = v; try{ localStorage.removeItem(tkey); }catch(e){}
+        csave.textContent = "保存済み ✓";
+        cstat.textContent = "コメントを保存しました（"+stamp()+"）"+(v ? "： "+v.slice(0,40)+(v.length>40?"…":"") : "（空にしました）");
+        cstat.style.display="block";
         setBusy("コメントを保存しました"); }
-      catch(e){ setBusy("失敗: "+e.message); }
+      catch(e){ csave.textContent = "コメントを保存"; setBusy("保存できませんでした。もう一度押してください。"); }
       csave.disabled = false;
     };
     crow.appendChild(csave); cwrap.appendChild(crow);
+    cwrap.appendChild(cstat);
     card.appendChild(cwrap);
     card.appendChild(detail);
     s2.appendChild(card);
@@ -706,6 +724,18 @@ async function load(){
             children:[{"object":"block","type":"paragraph","paragraph":{"rich_text":[
               {"type":"text","text":{"content":stamp+" 端末から: "+md}}]}}]})});
           try{ localStorage.removeItem("draft_memo"); }catch(e){}
+        }
+        // タスクのコメント欄（書きかけ）も先に保存する
+        const tkeys = [];
+        for(let i=0;i<localStorage.length;i++){ const k = localStorage.key(i);
+          if(k && k.startsWith("tdraft_")) tkeys.push(k); }
+        for(const k of tkeys){
+          const v = (localStorage.getItem(k) || "").trim();
+          const id = k.slice(7);
+          if(!v || id.length < 30) continue;
+          await api("/pages/"+id, {method:"PATCH", body:JSON.stringify({properties:{
+            "メモ":{"rich_text":[{"type":"text","text":{"content":v}}]}}})});
+          try{ localStorage.removeItem(k); }catch(e){}
         }
       }catch(e){}
       await api("/blocks/"+SIGN_PAGE+"/children", {method:"PATCH", body:JSON.stringify({

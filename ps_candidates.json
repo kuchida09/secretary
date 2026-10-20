@@ -1,0 +1,240 @@
+{
+ "①": {
+  "total": 20,
+  "n_ids": 20,
+  "n_new": 11,
+  "cands": [
+   {
+    "pmid": "42866242",
+    "title": "Precision surgical oncology for hepatocellular carcinoma.",
+    "abstract": "Hepatocellular carcinoma (HCC) is a heterogeneous tumor-liver-host disease in which treatment selection depends on tumor burden, liver function, portal hypertension, performance status, and patient preferences. Although hepatic resection and other established treatment modalities remain central to curative and disease-controlling strategies, emerging biological and digital technologies may provide additional information beyond conventional clinical assessment. However, their prognostic performance does not necessarily establish clinical utility, and many remain insufficiently validated for routine treatment selection. This narrative review examines the evolving role of precision-oriented approaches in HCC, including molecular and immune profiling, radiomics, circulating tumor DNA, artificial intelligence, and digital pathology. We classify these approaches into three evidence tiers: established clinical practice, investigational clinical tools, and future hypotheses. We then propose Precision Surgical Oncology as an author-developed, hypothesis-generating framework in which guideline-based assessment is followed by biological and host-risk refinement, multidisciplinary interpretation, individualized treatment within established therapeutic pathways, and longitudinal reassessment. Precision Surgical Oncology is intended to complement, rather than replace, evidence-based HCC management. Its future clinical value will depend on prospective validation, reproducibility, defined clinical actionability, equitable implementation, and demonstration of improved patient outcomes.",
+    "year": "2026",
+    "journal": "Front Oncol",
+    "doi": "10.3389/fonc.2026.1957598",
+    "first_author": "Okabayashi Takehiro",
+    "authors": [
+     "Okabayashi Takehiro",
+     "Tabuchi Motoyasu",
+     "Tokumaru Teppei",
+     "Uemura Sunao",
+     "Tamura Shuta"
+    ],
+    "pubtypes": [
+     "Journal Article",
+     "Review"
+    ]
+   },
+   {
+    "pmid": "42835046",
+    "title": "Explainable AI-based prognostication of patients with resectable colorectal liver metastases using preoperative clinical parameters: is it comparable to traditional clinical scoring systems?",
+    "abstract": "BACKGROUND: Prognostication for patients undergoing liver resection for colorectal liver metastases (CRLM) remains challenging. Artificial intelligence-based survival models may improve individualized risk estimation.\nMETHODS: We developed and compared classical machine learning and deep learning survival models using exclusively preoperative clinical variables from 350 patients undergoing first-time liver resection for CRLM. Models included Cox proportional hazards (CoxPH), random survival forest (RSF), support vector machine for survival (SVM), XGBoost survival, DeepSurv, and DeepHit. Model performance was evaluated using the concordance index (C-index) and the Integrated Brier Score (IBS) on a training set of 245 patients, testing set of 105 patients, and an independent internal validation set of 88 patients from the OSLO-COMET trial. Model interpretability was assessed using SHapley Additive explanation (SHAP) analysis. The results of the developed models were compared to well established Basingstoke Predictive Index (BPI).\nRESULTS: On internal validation cohort, CoxPH demonstrated the most consistent performance on the internal validation set (C-index 0.59), and on the test set patients (C-index 0.65), comparable to more complex machine learning and deep learning models. Although RSF achieved the highest training performance, this did not translate into superior performance both on the test and the internal validation datasets. CoxPH and DeepSurv models showed comparable 1-, 3-, and 5-year individual prediction to BPI. SHAP analysis consistently identified ASA score, lobar distribution, primary tumor location and number of metastases as the most influential predictors across models.\nCONCLUSIONS: Using structured preoperative clinical data, we developed machine-and deep-learning models to predict overall survival in patients with CRLM. Given that the models were based exclusively on preoperative clinical variables, their performance is encouraging. Predictive accuracy may be further improved by incorporating additional data modalities, particularly radiological features as well as by training on larger datasets.",
+    "year": "2026",
+    "journal": "Front Oncol",
+    "doi": "10.3389/fonc.2026.1890766",
+    "first_author": "Kumar Nikhil Pramod",
+    "authors": [
+     "Kumar Nikhil Pramod",
+     "Drejian Sarkis",
+     "Akhavi Mehdi Sadat",
+     "Qadir Hemin Ali",
+     "Fretland Åsmund Avdem",
+     "Kazaryan Airazat M",
+     "Aghayan Davit",
+     "Balasingham Ilangko",
+     "Edwin Bjørn"
+    ],
+    "pubtypes": [
+     "Journal Article"
+    ]
+   },
+   {
+    "pmid": "42799748",
+    "title": "Prediction of post-hepatectomy liver failure risk in patients with colorectal cancer liver metastases utilizing gadoxetic acid-enhanced MRI radiomics with automatic segmentation and image registration.",
+    "abstract": "OBJECTIVES: To develop and validate a radiomics model based on gadoxetic acidenhanced MRI, which can better reflect the future liver remnant (FLR) and its function through automatic segmentation and image registration, thereby predicting the risk of post-hepatectomy liver failure (PHLF) in patients with colorectal cancer liver metastases (CRLM).\nMETHODS: This retrospective study analyzed 134 CRLM patients who were divided into a training group (n = 93) and a validation group (n = 41). Model-Whole was constructed using the entire liver on preoperative hepatobiliary phase (HBP) obtained by automatic segmentation excluding the region of liver metastases. Model-FLR was constructed using the FLR on the HBP by registering postoperative CT and preoperative MR. Model-Clinical was constructed using general characteristics, preoperative data, intraoperative data and imaging parameters by univariate and multivariate analyses. Model-Clinical-radiomics was constructed using the optimal radiomics model and features from clinical model. The models were used to predict low-grade PHLF (without PHLF or PHLF Grade A) and high-grade PHLF (PHLF Grade B or C).\nRESULTS: There were three and five radiomics features used for constructing Model-Whole and Model-FLR. The number of resected lesions and international normalized ratio (INR) were used for constructing Model-Clinical. The AUC of Model-Clinical-radiomics was 0.912 (95%CI: 0.835-0.961) and 0.896 (95%CI: 0.760-0.969) in the training group and the validation group, higher than that of any other models.\nCONCLUSION: Model-Clinical-radiomics, which was based on Model-FLR, had good efficacy in predicting PHLF.",
+    "year": "2026",
+    "journal": "Abdom Radiol (NY)",
+    "doi": "10.1007/s00261-026-05801-w",
+    "first_author": "Xing Qian",
+    "authors": [
+     "Xing Qian",
+     "Cui Yong",
+     "Liu Ming",
+     "Zhu Hai-Tao",
+     "Gu Xiao-Lei",
+     "Li Xiao-Ting",
+     "Xing Bao-Cai",
+     "Sun Ying-Shi"
+    ],
+    "pubtypes": [
+     "Journal Article"
+    ]
+   },
+   {
+    "pmid": "42775048",
+    "title": "3D Modelling for Preoperative Planning, Intraoperative Navigation, and Training in Pancreatic Surgery: A Systematic Review.",
+    "abstract": "OBJECTIVE: To systematically review the state of the art for 3-dimensional (3D) technologies in pancreatic surgery for preoperative planning, intraoperative navigation, and surgical training.\nBACKGROUND: Three-dimensional modeling is currently routinely used in the standard preoperative work-up for liver surgery and is also increasingly adopted in pancreatic surgery to improve anatomical understanding, surgical planning, and intraoperative guidance. Recent advances have expanded these technologies toward augmented visualization and artificial intelligence-assisted workflows. The clinical impact, level of evidence, and real-world feasibility of these approaches are still under active investigation.\nMETHODS: A systematic review was conducted according to Preferred Reporting Items for Systematic Review and Meta-Analyses 2020 guidelines and registered in PROSPERO (CRD420251085091). PubMed and CENTRAL were searched through December 2025 to prioritize clinically oriented literature on patient-specific 3D applications in pancreatic surgery. Because of marked heterogeneity in study design, interventions, and outcome definitions, results were synthesized descriptively.\nRESULTS: Fifty-eight studies met inclusion criteria and were grouped into 3 domains: preoperative planning (n = 40), intraoperative navigation (n = 7), and surgical training (n = 11). In preoperative planning, 28/40 studies demonstrated superior staging, vascular mapping, and resectability assessment compared with conventional imaging. In 6/7 studies investigating intraoperative navigation, correct alignment was achieved, and a reduction in operative time and intraoperative blood loss was reported in 2/7 studies employing augmented reality-assisted navigation. In surgical training, 9/11 studies showed improved anatomical comprehension and procedural performance using 3D printing, virtual reality, and 3D imaging, associated with reduced operative time and faster learning curves.\nCONCLUSION: Three-dimensional technologies enhance anatomical visualization and support planning, navigation, and training in pancreatic surgery; however, consistent improvement in definitive perioperative or oncologic outcomes has not yet been demonstrated. Future studies should prioritize standardized outcomes, formal study-quality assessment, workflow feasibility, cost-effectiveness, and rigorous evaluation of artificial intelligence-enabled applications.",
+    "year": "2026",
+    "journal": "Ann Surg Open",
+    "doi": "10.1097/AS9.0000000000000701",
+    "first_author": "Sguinzi Raffaella",
+    "authors": [
+     "Sguinzi Raffaella",
+     "Lagger Melissa",
+     "Maillard Edouard",
+     "Widmer Lucien",
+     "Fingerhut Abe",
+     "Adamina Michel",
+     "Toso Christian",
+     "Leo Buhler"
+    ],
+    "pubtypes": [
+     "Journal Article",
+     "Review"
+    ]
+   },
+   {
+    "pmid": "42754631",
+    "title": "Indocyanine green fluorescence imaging in minimally invasive liver resection for colorectal liver metastases: lesion detection and surgical outcomes-a systematic review and meta-analysis.",
+    "abstract": "BACKGROUND: Indocyanine green (ICG) fluorescence imaging is used during minimally invasive liver resection for colorectal liver metastases (CRLM), but disease-specific evidence is limited and has often mixed patient-level and lesion-level outcomes.\nMETHODS: Six databases were searched to May 14, 2026. We prespecified lesion-detection and surgical-outcome modules. Primary quantitative analyses required fully separable CRLM numerators and denominators. Patient-level and lesion-level R0 outcomes were analyzed separately. Random-effects logit models used Paule-Mandel variance and Hartung-Knapp 95% confidence intervals (CIs). Diagnostic studies were assessed with QUADAS-2 and surgical cohorts with the Newcastle-Ottawa Scale.\nRESULTS: Eighteen eligible reports represented 17 unique cohorts; one earlier report was excluded from quantitative synthesis because its cohort was nested in a later study. Patient-level R0 resection was reported in four studies (146/155 patients) and pooled at 92.5% (95% CI 62.7-98.9%; I2 = 71.3%). Lesion-level R0 resection was reported in four studies (424/455 lesions) and pooled at 93.0% (95% CI 83.2-97.3%; I2 = 25.3%). Major morbidity (Clavien-Dindo grade III or higher) occurred in 20/354 patients across four CRLM-specific cohorts, with a pooled proportion of 6.2% (95% CI 3.1-11.8%; I2 = 0%). Six studies reported fluorescence-positive proportions for CRLM lesions ranging from 59.6 to 95.6%; these were not pooled because reference standards and outcome definitions differed. The only controlled comparison reported higher lesion-level R0 with ICG (odds ratio 5.65, 95% CI 1.02-31.48), but was small and retrospective.\nCONCLUSIONS: ICG fluorescence imaging is feasible for lesion visualization and margin-oriented navigation in selected CRLM patients at experienced centers. Evidence remains insufficient to establish comparative benefit over conventional minimally invasive resection. Adequately powered randomized trials with standardized ICG and intraoperative-ultrasonography protocols and patient-centered oncologic outcomes are essential.\nTRIAL REGISTRATION: PROSPERO registration: CRD420261394514.",
+    "year": "2026",
+    "journal": "Surg Endosc",
+    "doi": "10.1007/s00464-026-13265-8",
+    "first_author": "Han Fengjie",
+    "authors": [
+     "Han Fengjie",
+     "Wang Qingqing",
+     "Shu Guiming"
+    ],
+    "pubtypes": [
+     "Journal Article",
+     "Meta-Analysis",
+     "Systematic Review"
+    ]
+   },
+   {
+    "pmid": "42590196",
+    "title": "A CT-Based 3D Anatomical Mapping Study of Right Posterior Portal and Hepatic Venous Patterns: Revisiting Liver Segmentation and Its Surgical Implication.",
+    "abstract": "Background: Classical Couinaud's segmentation assumes the dichotomous division of the right posterior portal vein (RPPV) into P6 and P7. However, increasing imaging evidence suggests substantial anatomical variability, limiting the intraoperative identification of segmental borders and providing guidance for subsegmental resection. Methods: We retrospectively analyzed contrast-enhanced five-phase computed tomography (CT)-based three-dimensional reconstructions from 100 consecutive eligible cases (2020-2025). Third-order RPPV branching patterns were classified into three types: bifurcation (PV-type 1), loops (PV-type 2), and others (PV-type 3). We measured the 3D distances from the posterior portal origin to the first major branch point and performed volumetric analysis of territories supplied by individual third-order branches using Ziostation REVORAS. Hepatic vein anatomy was categorized as HV-type 1 (a fissure plane forming an intersegmental vein), HV-type 2 (a landmark vein without plane formation), or HV-type 3 (neither) and compared between portal types. Results: PV-type 1 was observed in 45 cases (45.0%), while PV-type 2 was seen in 53 cases (53.0%); however, two cases (2.0%) showed other patterns. The distance to the first branch point was shorter in PV-type 1 than in PV-type 2 (8.89 ± 7.87 vs. 17.3 ± 8.36 mm; p < 0.001). In PV-type 1, the first caudal branch territory (corresponding to S6) accounted for 43.8% ± 12.6% of the posterior section, whereas the first-branch cone-unit territory in PV-type 2 accounted for 14.9% ± 8.64% (p < 0.001). The HV-type 1/2/3 ratios differed by portal type (PV-type 1: 29/16/0; PV-type 2: 25/14/14; p < 0.001), and 26.4% of PV-type 2 cases lacked any hepatic venous landmarks. Conclusions: PV-type 2 peripheral RPPV branching was observed in 53% of cases. Although conventional Couinaud-based segmentectomy with the Glissonian approach and vein-guided transection was suitable for PV-type 1, cone-unit-based anatomical resection supported by individualized preoperative simulation and intraoperative navigation may prove useful for PV-type 2 anatomy.",
+    "year": "2026",
+    "journal": "J Clin Med",
+    "doi": "10.3390/jcm15156093",
+    "first_author": "Imanaka Takashi",
+    "authors": [
+     "Imanaka Takashi",
+     "Morise Zenichi",
+     "Kato Hiroyuki",
+     "Nakamura Kenichi",
+     "Koide Tetsuya",
+     "Matsuo Kazuhiro",
+     "Endo Tomoyoshi",
+     "Morohara Koji",
+     "Horiguchi Akihiko",
+     "Katsuno Hidetoshi"
+    ],
+    "pubtypes": [
+     "Journal Article"
+    ]
+   },
+   {
+    "pmid": "42582621",
+    "title": "Prediction model for hypertrophied liver volume followed by hemihepatectomy: a retrospective cohort study.",
+    "abstract": "PURPOSE: This study aimed to develop a statistical model for predicting hypertrophied future liver remnant volume (HFLRV) in patients with right hemihepatectomy (RHH).\nMETHODS: Patients who underwent RHH at Samsung Medical Center between January 2022 and March 2024 were included in this study. Liver volume was calculated from abdomen CT by using a deep learning-based volumetric tool.\nRESULTS: A total of 98 patients were included. There were 58 and 40 patients whose liver regeneration index was less than 0.8 and 0.8 or more, respectively. The prediction model, which focused on identifying variables associated with HFLRV, included age at diagnosis (P = 0.14), sex (P = 0.01), both preoperative hemi-liver volumes (P < 0.001), and international normalized ratio (P < 0.05). This model demonstrated adjusted R2 of 0.60, correlation coefficient (r) of 0.78, and P-value of <0.001.\nCONCLUSION: This study developed a linear prediction model for HFLRV and determined which factors can be used to predict HFLRV before RHH.",
+    "year": "2026",
+    "journal": "Ann Surg Treat Res",
+    "doi": "10.4174/astr.2026.111.2.86",
+    "first_author": "Yu Jiwon",
+    "authors": [
+     "Yu Jiwon",
+     "Park Sunghae",
+     "Choi Gyu-Seong",
+     "Kim Jongman",
+     "Oh Namkee",
+     "Kim Bogeun",
+     "Rhu Jinsoo"
+    ],
+    "pubtypes": [
+     "Journal Article"
+    ]
+   },
+   {
+    "pmid": "42532172",
+    "title": "Prospective comparison of near-infrared I and II fluorescence imaging for intraoperative navigation in pediatric hepatoblastoma resection.",
+    "abstract": "BACKGROUND: Complete resection is critical for cure in hepatoblastoma (HB), but small, superficial, or deep lesions may be missed by conventional intraoperative assessment or near-infrared window I (NIR-I) fluorescence imaging. We prospectively evaluated the feasibility and comparative performance of indocyanine green (ICG)-based near-infrared window II (NIR-II) fluorescence imaging during pediatric hepatoblastoma resection.\nMETHODS: Fourteen children with HB were prospectively enrolled. All patients received preoperative ICG administration and underwent intraoperative paired NIR-I and NIR-II fluorescence imaging using a self-developed multispectral imaging system. In vivo and ex vivo fluorescence findings were correlated with histopathology. In vivo tumor-to-normal ratio (TNR), ex vivo tumor-to-background ratio (TBR), and lesion detection performance were compared between the two modalities.\nRESULTS: NIR-II imaging showed higher intraoperative TNR than NIR-I imaging (10.11 ± 3.48 vs 6.49 ± 3.48, P < 0.05) and higher ex vivo TBR (16.05 ± 8.43 vs 9.88 ± 5.35, P < 0.05). In specimen-based analysis, NIR-II showed higher sensitivity (88.9% vs 77.8%) and accuracy (84.4% vs 80.0%) than NIR-I imaging. NIR-II also identified additional satellite or metastatic lesions not clearly visualized by NIR-I imaging in representative cases and improved localization of deeply located tumors.\nCONCLUSION: ICG-based NIR-II fluorescence imaging is feasible in pediatric HB surgery and may provide incremental intraoperative visualization compared with NIR-I imaging, particularly for selected small, deep, or weakly fluorescent lesions. These preliminary findings support the complementary role of NIR-II imaging in intraoperative decision-making but require validation in larger studies with standardized follow-up.\nLEVEL OF EVIDENCE: Level III.",
+    "year": "2026",
+    "journal": "J Pediatr Surg",
+    "doi": "10.1016/j.jpedsurg.2026.163340",
+    "first_author": "Tian Yu",
+    "authors": [
+     "Tian Yu",
+     "Chen Xinghai",
+     "Ye Mao",
+     "Xiao Ping",
+     "Wu Yurui",
+     "Chen Yan",
+     "Li Xu",
+     "Li Long",
+     "Hu Zhenhua"
+    ],
+    "pubtypes": [
+     "Journal Article",
+     "Comparative Study"
+    ]
+   },
+   {
+    "pmid": "42512372",
+    "title": "Intraoperative Ultrasound in Hepatic Oncology Surgery: A Narrative Review of Its Impact on Surgical Strategy and Oncologic Outcomes.",
+    "abstract": "Background/Objectives: Intraoperative ultrasound (IOUS) has become an integral component of modern hepatic oncology surgery, providing real-time imaging guidance during liver resections for hepatocellular carcinoma, colorectal liver metastases, and other primary or secondary hepatic malignancies. Despite substantial improvements in preoperative imaging modalities, occult lesions, disappearing metastases after chemotherapy, and complex vascular relationships continue to represent major intraoperative challenges. This structured narrative review aimed to evaluate the contemporary role of IOUS in hepatic oncology surgery, with particular emphasis on contrast-enhanced intraoperative ultrasound (CE-IOUS), minimally invasive liver surgery, navigation-assisted hepatectomy, and emerging artificial intelligence-based technologies. Methods: A structured literature review was conducted using PubMed/MEDLINE, Scopus, Web of Science, and Google Scholar databases. Peer-reviewed studies, international guidelines, consensus statements, systematic reviews, and technological reports addressing IOUS applications in liver surgery were analyzed. Particular focus was placed on studies evaluating lesion detection, intraoperative strategy modification, disappearing colorectal liver metastases, parenchymal-sparing hepatectomy, laparoscopic and robotic liver surgery, navigation systems, augmented reality integration, and AI-assisted imaging technologies. Results: Contemporary evidence demonstrates that IOUS continues to significantly influence intraoperative decision-making despite advances in magnetic resonance imaging and multidetector computed tomography. CE-IOUS improves the detection of occult hepatic lesions and residual disease after systemic chemotherapy, particularly in disappearing colorectal liver metastases. IOUS-guided anatomical and parenchymal-sparing resections contribute to the preservation of functional liver parenchyma while maintaining oncologic radicality. In minimally invasive liver surgery, laparoscopic ultrasound remains essential for lesion localization and vascular mapping. Recent developments integrating navigation systems, augmented reality platforms, and AI-assisted image recognition suggest a progressive transition toward digitally integrated precision liver surgery. Conclusions: IOUS remains a cornerstone of modern hepatic oncology surgery and continues to evolve from a localization tool into a comprehensive platform for precision-guided liver resection. The integration of CE-IOUS, navigation technologies, and artificial intelligence may further enhance intraoperative accuracy, oncologic safety, and individualized surgical planning in the future.",
+    "year": "2026",
+    "journal": "Cancers (Basel)",
+    "doi": "10.3390/cancers18142309",
+    "first_author": "Nicolescu Cosmin",
+    "authors": [
+     "Nicolescu Cosmin",
+     "Cosma Catalin Dumitru",
+     "Botoncea Marian",
+     "Bartoș Adrian",
+     "Molnar Călin"
+    ],
+    "pubtypes": [
+     "Journal Article",
+     "Review"
+    ]
+   },
+   {
+    "pmid": "42449575",
+    "title": "AI-Driven Predictive Models of Early Recurrence of HCC After Surgical Resection: A Systematic Review.",
+    "abstract": "Background/Objectives: Early recurrence after curative-intent resection is a major determinant of poor prognosis in hepatocellular carcinoma (HCC). Artificial intelligence (AI)-driven predictive models have emerged to identify patients at high risk of recurrence but remain incompletely synthesized for early recurrence specifically. This review aimed to identify and appraise AI-driven models predicting early recurrence after surgical resection. Methods: PubMed/MEDLINE, Scopus and Web of Science were searched from inception to November 2025. Eligible studies developed and evaluated AI-driven models predicting early recurrence (≤24 months) after curative-intent hepatectomy as first-line treatment for HCC. Risk of bias and applicability were assessed using PROBAST+AI, and findings were synthesized narratively due to methodological heterogeneity. The review was registered in PROSPERO. Results: Thirty-six studies involving 14,716 patients were included. Most studies originated from China (33/36, 91.7%), were single-center (27/36, 75%), and retrospective (35/36, 97.2%). Magnetic resonance imaging (MRI) was the predominant imaging modality (15/36, 41.7%), followed by computed tomography (CT) (11/36, 30.6%) and ultrasound (US)/contrast-enhanced ultrasound (CEUS) (6/36, 16.7%). Three studies developed non-imaging models, and one combined CT and MRI. In within-study comparisons, multimodal models generally showed better discrimination than unimodal approaches. Peritumoral, habitat-based, and multiphasic strategies appeared promising. However, external validation was reported in only 6/36 studies (16.7%), calibration and decision-curve analysis were inconsistently reported, and most studies had high risk of bias. Conclusions: AI-driven models show potential to predict early recurrence of HCC after curative-intent resection. Nevertheless, evidence remains limited by methodological heterogeneity and restricted geographical diversity, while clinical utility remains inconsistently evaluated, and no model has yet been generalized in clinical practice. Prospective multicenter studies with standardized outcomes, transparent reporting, and external validation are needed for clinical implementation.",
+    "year": "2026",
+    "journal": "Cancers (Basel)",
+    "doi": "10.3390/cancers18132028",
+    "first_author": "Neves Mafalda Mota",
+    "authors": [
+     "Neves Mafalda Mota",
+     "Soares Carlos"
+    ],
+    "pubtypes": [
+     "Journal Article",
+     "Review"
+    ]
+   },
+   {
+    "pmid": "42445379",
+    "title": "Development and validation of a Random Forest prediction model integrating clinical and ultrasound radiomics features for microvascular invasion in hepatocellular carcinoma patients: a retrospective study.",
+    "abstract": "BACKGROUND: Microvascular invasion (MVI) is a pivotal driver of postoperative recurrence in hepatocellular carcinoma (HCC), yet its preoperative prediction remains a significant clinical challenge. Accurate preoperative MVI assessment is crucial for guiding surgical decisions, as patients with MVI-positive HCC may benefit from more aggressive resection margins or adjuvant therapies. Existing prediction models based on computed tomography (CT) or magnetic resonance imaging (MRI) radiomics are limited by high cost, limited availability in resource-constrained settings, radiation exposure (for CT), and contraindications (for MRI). In contrast, ultrasound, as the first-line imaging modality for HCC screening, offers unique advantages including real-time imaging capability, cost-effectiveness, portability, no radiation exposure, and widespread availability. However, predictive models based on ultrasound radiomics for MVI remain scarce. This study aimed to develop and validate a Random Forest model integrating clinical characteristics and ultrasound radiomics features for preoperative prediction of MVI in HCC patients.\nMETHODS: A total of 224 HCC patients who underwent hepatectomy at the First Affiliated Hospital of Xinjiang Medical University between January 2023 and June 2025 were retrospectively enrolled. Patients were randomly split into training (n=157) and test (n=67) cohorts at a 7:3 ratio. MVI was diagnosed according to the Liver Cancer Pathology Group of China (LCPGC) consensus criteria. After standardizing ultrasound image preprocessing and tumor segmentation, 1,046 radiomic features were extracted. Following feature reduction via 10-fold cross-validated Least Absolute Shrinkage and Selection Operator (LASSO) regression, three machine learning models [Random Forest, backpropagation neural network (BPNN), and Nomogram] were developed and compared.\nRESULTS: The study cohort comprised 224 patients (mean age 57.9±6.2 years; 70.5% male), with MVI confirmed in 74 patients (33.0%). Patients were randomly split into training (n=157, MVI 31.8%) and test (n=67, MVI 35.8%) cohorts at a 7:3 ratio. Multivariate analysis identified maximum tumor diameter, alpha-fetoprotein (AFP), and vascular endothelial growth factor (VEGF) as independent clinical predictors of MVI (all P<0.05). LASSO regression selected four robust radiomics features. In the test cohort, the Random Forest model achieved an area under the receiver operating characteristic curve (AUC) of 0.908, with sensitivity of 79.2%, specificity of 81.4%, and accuracy of 80.6%, significantly outperforming both the BPNN model (AUC =0.675) and Nomogram model (AUC =0.755). Decision curve analysis confirmed the higher clinical utility of the Random Forest model.\nCONCLUSIONS: The Random Forest model integrating clinical characteristics and ultrasound radiomics features demonstrated favorable predictive performance for the preoperative assessment of MVI in HCC patients. However, given the retrospective, single-center design and relatively small sample size, these findings should be interpreted with caution. This model holds potential as a cost-effective, noninvasive tool to support individualized surgical planning. Further external validation in multi-center cohorts is warranted before clinical implementation.",
+    "year": "2026",
+    "journal": "Transl Cancer Res",
+    "doi": "10.21037/tcr-2026-1-0031",
+    "first_author": "Makeshati Aman",
+    "authors": [
+     "Makeshati Aman",
+     "Du Yuying",
+     "Xiaerfuhazi Halida",
+     "Yang Xiaoping"
+    ],
+    "pubtypes": [
+     "Journal Article"
+    ]
+   }
+  ]
+ }
+}
