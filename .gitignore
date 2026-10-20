@@ -7,3 +7,9 @@ wake_log.txt
 # 使い捨ての作業ファイル
 _*
 tmp_*
+# 端末の作業用スクリプト・データ（公開アプリには不要）
+notion_ds.py
+notion_feed.py
+ledger_url.py
+ps_*.py
+ps_*.json
