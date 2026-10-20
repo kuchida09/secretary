@@ -56,7 +56,7 @@ def check_monitor_runs():
     env = dict(os.environ, WATCH_DRY="1")  # 検査は「見るだけ」。状態を書き換えない
     r = subprocess.run([sys.executable, str(HOME / "watch_notion.py")], capture_output=True, text=True, cwd=HOME, env=env)
     first = (r.stdout or r.stderr).strip().split("\n")[0][:120]
-    ok = r.returncode == 0 and (first.startswith("NOCHANGE") or first.startswith("CHANGED"))
+    ok = r.returncode == 0 and (first == "" or first.startswith("✅"))
     add("OK" if ok else "NG", "監視スクリプトが動く", first)
 
 

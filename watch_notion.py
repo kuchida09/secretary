@@ -131,7 +131,7 @@ def main():
         pass
 
     if old == now:
-        print("NOCHANGE")
+        # 何も出力しない（この出力をそのまま配信する「合図ジョブ」が空振りしないように）
         return
 
     if not DRY:
@@ -149,7 +149,6 @@ def main():
     except Exception:
         last_wake = 0.0
     if not sign_changed and (time.time() - last_wake) < 480:
-        print("NOCHANGE")
         return
     if not DRY:
         try:
@@ -157,7 +156,34 @@ def main():
         except Exception:
             pass
 
-    print("CHANGED")
+    # 差分の詳細はファイルに残し、配信する出力は短い「合図」だけにする
+    # （この出力は「合図ジョブ」がそのまま Discord に配信する。空なら何も送られない）
+    detail, kinds = [], []
+    if now.get("sign") and now.get("sign") != old.get("sign"):
+        kinds.append("読了サイン")
+        detail.append("読了サイン: " + now["sign"])
+    for k in sorted(set(now) | set(old)):
+        if k in ("sign", "memo"):
+            continue
+        if now.get(k) != old.get(k):
+            label = {"r:": "提案", "t:": "タスク", "rep:": "レポート", "qa:": "確認事項"}.get(k[:4], "その他")
+            if label not in kinds:
+                kinds.append(label)
+            detail.append(f"{label}|{k.split(':',1)[1][:8]}|{(old.get(k) or '（新規）')} → {now.get(k)}")
+    if now.get("memo") != old.get("memo"):
+        new_reqs = [r for r in now.get("memo", "").split("||") if r and r not in (old.get("memo") or "")]
+        if new_reqs:
+            if "改善メモ" not in kinds:
+                kinds.append("改善メモ")
+            for r in new_reqs:
+                detail.append("メモ|" + r[:160])
+    try:
+        pathlib.Path(__file__).resolve().parent.joinpath("watch_notion_lastdiff.txt").write_text(
+            "\n".join(detail), encoding="utf-8")
+    except Exception:
+        pass
+
+    print("✅ 受け取りました（" + "・".join(kinds or ["操作"]) + "）。処理は担当の係が行います。")
     if DRY:
         return
     try:
@@ -169,28 +195,6 @@ def main():
         logp.write_text("\n".join(lines) + "\n", encoding="utf-8")
     except Exception:
         pass
-    if now.get("sign") and now.get("sign") != old.get("sign"):
-        print("読了サイン: " + now["sign"])
-    for k in sorted(set(now) | set(old)):
-        if k in ("sign", "memo"):
-            continue
-        if now.get(k) != old.get(k):
-            label = {"r:": "提案", "t:": "タスク", "rep:": "レポート", "qa:": "確認事項"}.get(k[:4], "その他")
-            print(f"{label}|{k.split(':',1)[1][:8]}|{(old.get(k) or '（新規）')} → {now.get(k)}")
-    if now.get("memo") != old.get("memo"):
-        new_reqs = [r for r in now.get("memo", "").split("||") if r and r not in (old.get("memo") or "")]
-        for r in new_reqs:
-            print("メモ|" + r[:160])
-    print("--- いまの状態 ---")
-    for k, v in sorted(now.items()):
-        if k.startswith("r:"):
-            parts = v.split("|", 2)
-            if len(parts) >= 2 and parts[1] not in ("対応済み", "見送る"):
-                print("提案|" + v[:120])
-        elif k.startswith("t:"):
-            parts = v.split("|", 2)
-            if len(parts) >= 2 and parts[1] != "完了":
-                print("タスク|" + v[:120])
 
 
 if __name__ == "__main__":

@@ -550,15 +550,27 @@ async function load(){
   for(const t of openTasks){
     const card = $("div","card");
     const name = txt(t.properties["名前"]);
-    const due = txt(t.properties["期限"]);
+    let due = txt(t.properties["期限"]);
     const pri = txt(t.properties["優先度"]);
     const memo = txt(t.properties["メモ"]);
     const handled = findHandled(name);
-    const isLate = due && due<=today;
+    const dueBtns = [];
     const top=$("div","row"); top.style.margin="0 0 2px";
-    top.innerHTML = (isLate?'<span class="chip u">期限 '+esc(due)+'</span>'
+    const paintTop = () => {
+      const late = due && due<=today;
+      top.innerHTML = (late?'<span class="chip u">期限 '+esc(due)+'</span>'
                           : (due?'<span class="chip">期限 '+esc(due)+'</span>':""))+
                      (pri?'<span class="chip">優先度 '+esc(pri)+'</span>':"");
+      for(const o of dueBtns){
+        const d2 = new Date(); d2.setDate(d2.getDate()+o.days);
+        const p2 = x => String(x).padStart(2,"0");
+        const ds2 = d2.getFullYear()+"-"+p2(d2.getMonth()+1)+"-"+p2(d2.getDate());
+        const same = due === ds2;
+        o.btn.textContent = same ? "期限を取り消す" : o.label;
+        o.btn.classList.toggle("done", same);
+      }
+    };
+    paintTop();
     card.appendChild(top);
     const tt=$("div","title"); tt.textContent = name; card.appendChild(tt);
     // メモはカード上に単独で出さず、「詳細を開く」の中にまとめて表示する（二重表示を防ぐ）
@@ -644,13 +656,22 @@ async function load(){
     // リマインド（期限を明日／来週に）
     const mkDue = (label, days) => {
       const btn = $("button","act"); btn.textContent = label;
+      dueBtns.push({btn: btn, label: label, days: days});
       btn.onclick = async () => {
-        btn.disabled = true; setBusy("期限を設定しています…");
+        btn.disabled = true;
         const d = new Date(); d.setDate(d.getDate()+days); const p = x => String(x).padStart(2,"0");
         const ds = d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate());
-        try{ await api("/pages/"+t.id, {method:"PATCH", body:JSON.stringify({properties:{"期限":{"date":{"start":ds}}}})});
-          setBusy("期限を "+ds+" にしました（スマホへの通知はカレンダー経由です）"); }
-        catch(e){ setBusy("失敗: "+e.message); btn.disabled=false; }
+        const wasSame = due === ds;
+        setBusy(wasSame ? "期限を取り消しています…" : "期限を設定しています…");
+        try{
+          const body = wasSame ? {"期限":{"date":null}} : {"期限":{"date":{"start":ds}}};
+          await api("/pages/"+t.id, {method:"PATCH", body:JSON.stringify({properties:body})});
+          due = wasSame ? "" : ds;
+          paintTop();
+          setBusy(wasSame ? "期限を取り消しました" : "期限を "+ds+" にしました（スマホへの通知はカレンダー経由です）");
+        }
+        catch(e){ setBusy("失敗: "+e.message); }
+        btn.disabled=false;
       };
       return btn;
     };
