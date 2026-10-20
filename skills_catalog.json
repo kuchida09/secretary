@@ -1,0 +1,110 @@
+{
+  "updated": "2026-10-20",
+  "model": "deepseek/deepseek-v4.1-flash（OpenRouter・入力8.87円／出力19.01円 per 100万トークン）",
+  "note": "利用者が「スキル名」と言ったら skills_catalog.py の出力をそのまま貼る（LLMで作り直さない）。",
+  "groups": [
+    {
+      "title": "導入済み（もう使える）",
+      "items": [
+        {
+          "name": "yomiyasu（よみやす）",
+          "what": "AIが書いた日本語を点検・推敲する。太字や箇条書きの多すぎ、Markdownの表示崩れを見つける",
+          "status": "導入済み",
+          "how": "点検は毎回自動（文書を書いたらリンター）／フルの推敲は「よみやすで推敲して」。長めの文章は自動で適用",
+          "cost": "点検 0円（スクリプトのみ）／推敲 約0.3円",
+          "where": "/workspace/secretary/tools/yomiyasu_lint.py（本体は外部・MIT）"
+        },
+        {
+          "name": "imozuru（芋づる式の調査）",
+          "what": "知らない分野を、原文にたどり着くまで芋づる式に掘る。要約せず原文を保存し、主張ごとに出典の行を示す",
+          "status": "導入済み",
+          "how": "「芋づる式に調べて: 〜」",
+          "cost": "1回 約1.6〜6.3円（ふつう4周で3.7円）",
+          "where": "/workspace/tools/imozuru/（更新は git pull）"
+        },
+        {
+          "name": "academic-research-skills（引用の点検）",
+          "what": "引用の点検（実在・錨・対象・結果・結論・臨床境界の6項目）",
+          "status": "導入済み（非商用のみ）",
+          "how": "「引用を点検して」",
+          "cost": "1本 約1〜3円（機械で引ける部分は0円）",
+          "where": "/workspace/tools/academic-research-skills/（CC BY-NC 4.0・製品化には使えない）"
+        }
+      ]
+    },
+    {
+      "title": "候補（まだ入れていない・使うかもしれない）",
+      "items": [
+        {
+          "name": "xurl",
+          "what": "X（Twitter）の読み書き（投稿・検索・DM）",
+          "status": "候補",
+          "how": "「Xを見て」「ポストして」など。APIのキー設定が必要",
+          "cost": "1回 約0.2〜1円（取得する量しだい）",
+          "where": "Hermes の組み込みスキル"
+        },
+        {
+          "name": "obsidian",
+          "what": "Obsidian のノート（vault）を読む・検索する・書く",
+          "status": "候補（Drive側の手書きノートとは別運用）",
+          "how": "「vault を見て」",
+          "cost": "1回 約0.2〜1円",
+          "where": "Hermes の組み込みスキル／保管庫は /hermes-f/vault"
+        },
+        {
+          "name": "書類づくりの道具（docx・xlsx・powerpoint・pdf）",
+          "what": "Word・Excel・PowerPoint・PDF の作成と読み取り",
+          "status": "候補",
+          "how": "「◯◯の書類を作って」",
+          "cost": "1回 約0.3〜2円（ページ数しだい）",
+          "where": "Hermes の組み込みスキル"
+        },
+        {
+          "name": "himalaya",
+          "what": "端末からメールを読む・送る（IMAP/SMTP）",
+          "status": "候補（いまは Gmail API で運用中）",
+          "how": "「メールを端末から読みたい」",
+          "cost": "1回 約0.2〜1円",
+          "where": "Hermes の組み込みスキル（Gmail のアプリパスワードが必要）"
+        },
+        {
+          "name": "codex・claude-code・opencode",
+          "what": "他のAI（コーディングエージェント）に作業を任せる",
+          "status": "候補（Claude Code とは共存中）",
+          "how": "「コードを書かせて」「◯◯を任せて」",
+          "cost": "相手側の契約しだい（こちらは指示と結果の受け取りだけ）",
+          "where": "Hermes の組み込みスキル"
+        }
+      ]
+    },
+    {
+      "title": "見送り（検討したが入れない・記録）",
+      "items": [
+        {
+          "name": "Paperclip＋外部PostgreSQLコンテナ",
+          "what": "エージェントの管理台帳を外部DBで持つ構成",
+          "status": "見送り",
+          "how": "-",
+          "cost": "-",
+          "where": "1人・単一プロファイルには複雑さだけが増えるため（2026-10-18 決定）"
+        },
+        {
+          "name": "ローカルLLM（RTX 5070 Ti 16GB）",
+          "what": "手元のGPUで推論する",
+          "status": "見送り",
+          "how": "-",
+          "cost": "-",
+          "where": "VRAMが足りず速度が実用外（本人の実測）"
+        },
+        {
+          "name": "Obsidian を記憶の本体にする案",
+          "what": "記録の正本を Obsidian vault に移す",
+          "status": "見送り（論文vaultは採用）",
+          "how": "-",
+          "cost": "-",
+          "where": "記憶の本体は records（git）。Drive側の手書きノートは別物として残す"
+        }
+      ]
+    }
+  ]
+}
