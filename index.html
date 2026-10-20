@@ -97,6 +97,11 @@
   .err{color:var(--urgent);font-size:13px}
   footer{font-size:11.5px;color:var(--soft);border-top:1px solid var(--line);padding-top:12px;margin-top:8px}
   .busy{font-size:12px;color:var(--accent);min-height:16px}
+  .upcard{background:var(--accent-soft);border-color:var(--accent)}
+  .upcard .title{font-size:14.5px;margin:0 0 4px}
+  .upcard ul{margin:2px 0 8px;padding-left:1.15em;font-size:13px}
+  .noway{background:var(--urgent-soft);color:var(--urgent);font-weight:700;font-size:13.5px;
+    border-radius:9px;padding:9px 11px;margin:8px 0}
 </style>
 </head>
 <body>
@@ -112,6 +117,14 @@ const SIGN_PAGE = "3fde71bc-ecb6-81f8-b7e0-f3408a247d50";
 const REPORT_DS = "a54924f2-1ca7-44f5-b5d1-47576d368aff";
 const QA_DS = "8d58d65b-8d15-4012-866a-772ee3942500";
 const NV = "2025-09-03";
+// アプリを直したら APP_VER を上げ、APP_NOTES に「何が変わったか」を書く。
+// 次に開いたときだけ、上に「更新情報」として出る（「確認した」で消える）。
+const APP_VER = "2026-10-20.2";
+const APP_NOTES = [
+  "提案が「やらない」内容のときは、ボタンが「やらない方針にする」に変わります（本文にも赤い帯で表示）。",
+  "アプリを変更したときは、次に開くとこの「更新情報」に出ます。",
+  "「詳細を開く」の中身は、太字・箇条書き・表・リンクが使える形で表示されます。",
+];
 const app = document.getElementById("app");
 const foot = document.getElementById("foot");
 const $ = (t,c) => { const e=document.createElement(t); if(c) e.className=c; return e; };
@@ -152,7 +165,11 @@ function blockToHtml(b){
       : (r.annotations&&r.annotations.bold ? "<b>"+esc(r.plain_text)+"</b>" : esc(r.plain_text))).join("");
   if(k==="heading_1"||k==="heading_2"||k==="heading_3") return "<h4>"+rich(b[k].rich_text)+"</h4>";
   if(k==="bulleted_list_item"||k==="numbered_list_item") return "<li>"+rich(b[k].rich_text)+"</li>";
-  if(k==="paragraph"||k==="quote"||k==="callout") return "<div>"+rich(b[k].rich_text)+"</div>";
+  if(k==="paragraph"||k==="quote"||k==="callout"){
+    const p = rich(b[k].rich_text);
+    if((b[k].rich_text||[]).map(r=>r.plain_text).join("").trim().startsWith("やらないことを提案"))
+      return '<div class="noway">'+p+'</div>';
+    return "<div>"+p+"</div>"; }
   if(k==="to_do") return "<div>"+(b.to_do.checked?"☑ ":"☐ ")+rich(b.to_do.rich_text)+"</div>";
   if(k==="divider") return "<hr>";
   return "";
@@ -219,9 +236,25 @@ function mdToHtml(md){
   return out.join("");
 }
 
+// 更新情報（アプリを直したら APP_VER を上げる。次に開いたときだけ上に出る）
+function updateCard(){
+  try{ if(localStorage.getItem("app_ver_seen") === APP_VER) return null; }catch(e){}
+  const box = $("div","card upcard");
+  const t = $("div","title"); t.textContent = "🔧 アプリを更新しました（"+APP_VER+"）"; box.appendChild(t);
+  const ul = $("ul");
+  for(const n of APP_NOTES){ const li = document.createElement("li"); li.textContent = n; ul.appendChild(li); }
+  box.appendChild(ul);
+  const b = $("button","act q"); b.textContent = "確認した（次から出さない）";
+  b.onclick = () => { try{ localStorage.setItem("app_ver_seen", APP_VER); }catch(e){} box.remove(); };
+  box.appendChild(b);
+  return box;
+}
+
 async function load(){
   app.innerHTML = "";
   setBusy("読み込み中…");
+  const uc = updateCard();
+  if(uc) app.appendChild(uc);
   const head = $("div","top");
   const left = $("div");
   const d = new Date();
@@ -361,7 +394,8 @@ async function load(){
       }catch(e){ setBusy("失敗: "+e.message); }
       undo.disabled = false;
     };
-    row.append(mk("この案で進める","p"), mk("直して","",true), mk("追加で調べて","",true),
+    const bGo = mk("この案で進める","p");
+    row.append(bGo, mk("直して","",true), mk("追加で調べて","",true),
                mk("判断延期","q"), mk("見送る","q"), mk("コメントを保存","q"), undo);
     card.appendChild(row);
     const jh = $("div","meta");
@@ -371,6 +405,14 @@ async function load(){
 
     api("/blocks/"+r.id+"/children?page_size=50").then(b=>{
       body.innerHTML = (memo2 ? '<div class="cnow">Hermes からの説明: '+esc(memo2)+'</div>' : "") + blocksToHtml(b.results);
+      // 「やらない」ことを提案する内容なら、ボタンと帯で分かるようにする
+      const plain = (b.results||[]).map(x => ((x[x.type]||{}).rich_text||[]).map(r=>r.plain_text).join("")).join("\n");
+      if(/やらないことを提案|やらない方針/.test(plain)){
+        bGo.textContent = "やらない方針にする";
+        const w = $("div","noway");
+        w.textContent = "この提案は「やらない」内容です。押すと『やらない方針』で確定します（まちがえたら「取り消す」で戻せます）。";
+        card.insertBefore(w, row);
+      }
     }).catch(()=>{
       body.innerHTML = memo2 ? '<div class="cnow">Hermes からの説明: '+esc(memo2)+'</div>' : "";
     });
