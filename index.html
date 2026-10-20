@@ -40,10 +40,20 @@
   .card.gone{opacity:.5}
   .num{font-size:11.5px;color:var(--accent);font-weight:700}
   .title{font-size:15.5px;font-weight:600;margin:2px 0 8px}
-  .body{font-size:13.5px;color:var(--soft)}
-  .body h4{font-size:12.5px;color:var(--ink);margin:10px 0 2px;font-weight:600}
-  .body ul{margin:2px 0 0;padding-left:1.15em}
-  .body li{margin:1px 0}
+  .body{font-size:13.5px;color:var(--ink);background:var(--alt);border:1px solid var(--line);
+    border-radius:10px;padding:11px 12px;margin-top:10px;line-height:1.65}
+  .body:empty{display:none}
+  .body h2,.body h3,.body h4{font-size:13.5px;color:var(--ink);margin:12px 0 4px;font-weight:700}
+  .body h2:first-child,.body h3:first-child,.body p:first-child{margin-top:0}
+  .body p{margin:4px 0}
+  .body ul,.body ol{margin:4px 0;padding-left:1.2em}
+  .body li{margin:2px 0}
+  .body table{border-collapse:collapse;width:100%;font-size:12.5px;margin:8px 0;display:block;overflow-x:auto}
+  .body th,.body td{border:1px solid var(--line);padding:4px 6px;text-align:left}
+  .body th{background:var(--card)}
+  .body blockquote{border-left:3px solid var(--accent);margin:8px 0;padding:2px 0 2px 10px;color:var(--soft)}
+  .body hr{border:0;border-top:1px solid var(--line);margin:10px 0}
+  .body code{font-size:12px;background:var(--card);padding:1px 4px;border-radius:4px}
   .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
   button.act{font-family:inherit;font-size:13px;font-weight:600;padding:8px 13px;border-radius:9px;
     border:1px solid var(--line);background:var(--alt);color:var(--ink)}
@@ -119,11 +129,11 @@ const QA_DS = "8d58d65b-8d15-4012-866a-772ee3942500";
 const NV = "2025-09-03";
 // アプリを直したら APP_VER を上げ、APP_NOTES に「何が変わったか」を書く。
 // 次に開いたときだけ、上に「更新情報」として出る（「確認した」で消える）。
-const APP_VER = "2026-10-20.2";
+const APP_VER = "2026-10-20.3";
 const APP_NOTES = [
+  "「明日に」「来週に」をもう一度押すと、期限を取り消せます（ボタンが「期限を取り消す」に変わります）。",
+  "「詳細を開く」の中身を読みやすくしました（見出し・箇条書き・表・引用が使え、枠の中に整えて表示）。",
   "提案が「やらない」内容のときは、ボタンが「やらない方針にする」に変わります（本文にも赤い帯で表示）。",
-  "アプリを変更したときは、次に開くとこの「更新情報」に出ます。",
-  "「詳細を開く」の中身は、太字・箇条書き・表・リンクが使える形で表示されます。",
 ];
 const app = document.getElementById("app");
 const foot = document.getElementById("foot");
@@ -184,6 +194,33 @@ function blocksToHtml(blocks){
   }
   if(li) out += "</ul>";
   return out;
+}
+
+function blockText(b){
+  const rt = (b[b.type] && b[b.type].rich_text) || [];
+  return rt.map(x => x.plain_text).join("");
+}
+
+// 詳細の中身を、見出し・箇条書き・表・引用が使える形（Markdown 風の1本のテキスト）に整えてから表示する
+function detailHtml(blocks){
+  const out = [];
+  for(const b of blocks){
+    if(b.type==="paragraph") out.push(blockText(b));
+    else if(b.type==="heading_1") out.push("# "+blockText(b));
+    else if(b.type==="heading_2") out.push("## "+blockText(b));
+    else if(b.type==="heading_3") out.push("### "+blockText(b));
+    else if(b.type==="bulleted_list_item") out.push("- "+blockText(b));
+    else if(b.type==="numbered_list_item") out.push("1. "+blockText(b));
+    else if(b.type==="to_do") out.push((b.to_do.checked ? "- ✓ " : "- ") + blockText(b));
+    else if(b.type==="quote") out.push("> "+blockText(b));
+    else if(b.type==="callout") out.push("- "+blockText(b));
+    else if(b.type==="code") out.push("```\n"+blockText(b)+"\n```");
+    else if(b.type==="divider") out.push("---");
+    else if(b.type==="table_row") out.push("| "+b.table_row.cells.map(c=>c.map(x=>x.plain_text).join("")).join(" | ")+" |");
+  }
+  const md = out.filter(x => x !== "").join("\n");
+  const html = md ? mdToHtml(md) : "";
+  return html || blocksToHtml(blocks);
 }
 
 function mdToHtml(md){
@@ -404,7 +441,7 @@ async function load(){
     s1.appendChild(card);
 
     api("/blocks/"+r.id+"/children?page_size=50").then(b=>{
-      body.innerHTML = (memo2 ? '<div class="cnow">Hermes からの説明: '+esc(memo2)+'</div>' : "") + blocksToHtml(b.results);
+      body.innerHTML = (memo2 ? '<div class="cnow">Hermes からの説明: '+esc(memo2)+'</div>' : "") + detailHtml(b.results);
       // 「やらない」ことを提案する内容なら、ボタンと帯で分かるようにする
       const plain = (b.results||[]).map(x => ((x[x.type]||{}).rich_text||[]).map(r=>r.plain_text).join("")).join("\n");
       if(/やらないことを提案|やらない方針/.test(plain)){
@@ -530,7 +567,7 @@ async function load(){
               body.className = "md"; body.innerHTML = mdToHtml(await res.text());
             } else {
               const bb = await api("/blocks/"+r.id+"/children?page_size=100");
-              body.innerHTML = blocksToHtml(bb.results);
+              body.innerHTML = detailHtml(bb.results);
             }
           }catch(e){ body.innerHTML = "（本文を読み込めませんでした）"; }
         };
@@ -584,7 +621,7 @@ async function load(){
           setBusy("詳細を読み込み中…"); db.disabled = true;
           try{
             const bb = await api("/blocks/"+t.id+"/children?page_size=50");
-            let dhtml = blocksToHtml(bb.results);
+            let dhtml = detailHtml(bb.results);
             // メモを詳細の先頭にまとめる（カード上の二重表示をやめた分をここに集約）
             if(memo) dhtml = '<div class="cnow">メモ: '+esc(memo)+'</div>' + dhtml;
             detail.innerHTML = dhtml || '<div class="sub">このタスクにはまだ詳細がありません（結果は Discord の該当メッセージにあります）。</div>';
