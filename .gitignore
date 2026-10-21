@@ -16,3 +16,14 @@ ps_*.json
 tools/
 watch_notion_lastdiff.txt
 reports/
+ledger.json
+notion_created.json
+check_ledger.py
+ledger_dump.py
+notion_add_feed.py
+notion_feed_peek.py
+notion_feed_schema.py
+notion_fix9.py
+notion_update_ledger.py
+verify_feed.py
+writeback_via_api.py
