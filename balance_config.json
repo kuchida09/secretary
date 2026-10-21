@@ -1,0 +1,5 @@
+{
+  "threshold_jpy": 1000,
+  "usd_jpy": 158.44,
+  "note": "残高が threshold_jpy を下回ったら Discord に1行知らせる。1時間ごとに更新（watch_notion.py から呼ばれる）。usd_jpy は目安の換算レート。"
+}

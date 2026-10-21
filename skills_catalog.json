@@ -29,6 +29,22 @@
           "how": "「引用を点検して」",
           "cost": "1本 約1〜3円（機械で引ける部分は0円）",
           "where": "/workspace/tools/academic-research-skills/（CC BY-NC 4.0・製品化には使えない）"
+        },
+        {
+          "name": "Indra OCR（画像・スキャンPDFの文字起こし）",
+          "what": "文字の層が無いPDFや画像を文字にする（80以上の言語・CPUのみ）",
+          "status": "導入済み",
+          "how": "「このPDFを文字にして」",
+          "cost": "0円（端末内で完結）",
+          "where": "/workspace/tools/bin/（tesseract の身代わり）"
+        },
+        {
+          "name": "agency-agents の7人（専門役の指示書）",
+          "what": "論文整理・統計・臨床エビデンス・事業化・科研費・翻訳・個人情報の専門役",
+          "status": "運用に入れた（必要なときだけ読む）",
+          "how": "該当する仕事のとき自動で読む（例: 科研費なら grant-writer）",
+          "cost": "1つ読んで 0.03〜0.09円",
+          "where": "/workspace/tools/agency-agents/（MIT・日本の前提に作り替えて使う）"
         }
       ]
     },
@@ -66,6 +82,14 @@
           "how": "「メールを端末から読みたい」",
           "cost": "1回 約0.2〜1円",
           "where": "Hermes の組み込みスキル（Gmail のアプリパスワードが必要）"
+        },
+        {
+          "name": "Jev（TypeSafe・判断の外注）",
+          "what": "文章でなく型つきの判断（選択・確信度）を返す。スキルや道具の選別を外注できる。学習には使わないと明言",
+          "status": "候補（スキルが200件規模になったら検討）",
+          "how": "「Jev を入れるか検討して」",
+          "cost": "外部APIの従量課金（料金は未確認）＋毎回、文面の一部を外部へ送る",
+          "where": "https://typesafe.ai/（APIキーが必要）"
         },
         {
           "name": "codex・claude-code・opencode",

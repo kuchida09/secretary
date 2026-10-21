@@ -196,6 +196,19 @@ def main():
     except Exception:
         pass
 
+    # 残高（デポジット）を1時間ごとに見る。少なければ1行だけ出す（cron が Discord に流す）。
+    # 失敗しても合図の動作は止めない。
+    try:
+        import subprocess
+        import sys as _sys
+        r = subprocess.run(
+            [_sys.executable, str(pathlib.Path(__file__).resolve().parent / "balance.py")],
+            capture_output=True, text=True, timeout=90)
+        if r.stdout.strip():
+            print(r.stdout.strip())
+    except Exception:
+        pass
+
 
 if __name__ == "__main__":
     try:
