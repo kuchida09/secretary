@@ -190,7 +190,8 @@ def main():
         logp = pathlib.Path(__file__).resolve().parent / "wake_log.txt"
         with logp.open("a", encoding="utf-8") as fh:
             fh.write(time.strftime("%Y-%m-%d %H:%M", jst_now()) + " " +
-                     ("sign" if now.get("sign") != old.get("sign") else "change") + "\n")
+                     ("sign" if now.get("sign") != old.get("sign") else "change") + " " +
+                     ("・".join(kinds) or "不明") + "\n")
         lines = logp.read_text(encoding="utf-8").splitlines()[-2000:]
         logp.write_text("\n".join(lines) + "\n", encoding="utf-8")
     except Exception:
