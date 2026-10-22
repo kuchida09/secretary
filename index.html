@@ -604,7 +604,10 @@ async function load(){
   s2.innerHTML = '<div class="head"><h2>タスク</h2><span class="c">'+openTasks.length+'件</span></div>';
   if(openTasks.length===0) s2.appendChild($("div","empty")).textContent = "未完了のタスクはありません。";
   openTasks.sort((a,b)=> (txt(a.properties["期限"])||"9999").localeCompare(txt(b.properties["期限"])||"9999"));
-  for(const t of openTasks){
+  // 優先度「低」のタスクは常時出さず、たたんでおく（2026-10-22 本人指示）
+  const lowPri = openTasks.filter(t => txt(t.properties["優先度"]) === "低");
+  const normal = openTasks.filter(t => txt(t.properties["優先度"]) !== "低");
+  const taskCard = (t) => {
     const card = $("div","card");
     const name = txt(t.properties["名前"]);
     let due = txt(t.properties["期限"]);
@@ -768,7 +771,25 @@ async function load(){
     cwrap.appendChild(cstat);
     card.appendChild(cwrap);
     card.appendChild(detail);
-    s2.appendChild(card);
+    return card;
+  };
+  for(const t of normal) s2.appendChild(taskCard(t));
+  if(lowPri.length){
+    const h = $("div","sub");
+    const toggle = $("button","act q");
+    toggle.style.display = "block"; toggle.style.width = "100%"; toggle.style.textAlign = "left";
+    let opened = false;
+    const box = $("div"); box.style.display = "none";
+    const paint = () => { toggle.textContent = (opened ? "▼ " : "▶ ") + "低優先度のタスク（" + lowPri.length + "件）" + (opened ? "（たたむ）" : "（開く）"); };
+    paint();
+    toggle.onclick = () => {
+      opened = !opened;
+      if(opened && !box.dataset.loaded){ for(const t of lowPri) box.appendChild(taskCard(t)); box.dataset.loaded = "1"; }
+      box.style.display = opened ? "block" : "none";
+      paint();
+    };
+    h.appendChild(toggle);
+    s2.appendChild(h); s2.appendChild(box);
   }
   app.appendChild(s2);
 
