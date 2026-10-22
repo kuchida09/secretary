@@ -567,6 +567,32 @@ async function load(){
           catch(e){ setBusy("失敗: "+e.message); rbtn.disabled = false; }
         };
         rrow.appendChild(rbtn); card.appendChild(rrow);
+        // レポートへのコメント（2026-10-22 本人要望）: 書いて送ると Hermes がレポートを直す
+        const cwrap = $("div","cwrap");
+        const cbox = document.createElement("textarea");
+        cbox.className = "cinput";
+        cbox.placeholder = "このレポートへのコメント（直してほしい点・追加してほしい点）";
+        const ckey = "draft_rep_"+r.id;
+        { const dv = localStorage.getItem(ckey); if(dv) cbox.value = dv; }
+        cbox.addEventListener("input", ()=>{ try{ localStorage.setItem(ckey, cbox.value); }catch(e){} });
+        cwrap.appendChild(cbox); card.appendChild(cwrap);
+        const prevMemo = txt(p["修正メモ"]);
+        if(prevMemo){ const pm = $("div","cnow"); pm.textContent = "あなたのコメント: "+prevMemo; card.appendChild(pm); }
+        const crow = $("div","row");
+        const cbtn = $("button","act p"); cbtn.textContent = "コメントを送る（Hermes が直します）";
+        cbtn.onclick = async () => {
+          const v = cbox.value.trim();
+          if(!v){ setBusy("先にコメントを書いてください"); cbox.focus(); return; }
+          cbtn.disabled = true; setBusy("送っています…");
+          try{
+            await api("/pages/"+r.id, {method:"PATCH", body:JSON.stringify({properties:{
+              "修正メモ":{"rich_text":[{"text":{"content":v}}]},
+              "状態":{"select":{"name":"修正あり"}}}})});
+            try{ localStorage.removeItem(ckey); }catch(e){}
+            setBusy("コメントを送りました（Hermes がレポートを直します）");
+          }catch(e){ setBusy("失敗: "+e.message); cbtn.disabled = false; }
+        };
+        crow.appendChild(cbtn); card.appendChild(crow);
         // 本文はボタンなしでそのまま表示（HTML をそのまま差し込む）
         const body = $("div","body"); body.style.display = "block";
         const src = (txt(p["場所"]) || "").trim();
