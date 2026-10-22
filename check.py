@@ -150,8 +150,12 @@ def check_notion():
             bad.append(f"{name}({type(exc).__name__})")
     add("NG" if bad else "OK", "Notion に接続できる", "、".join(bad))
 
+    # レポート本文は Notion 側に置く運用（場所に Notion のURLを入れる）。ローカルの .html/.md を
+    # 指している場合だけ実在を確かめる。どちらの場合も項目を必ず1つ出す（検査の数を保つ）。
     missing = [loc for loc in report_paths if not (HOME / loc.lstrip("/")).exists()]
-    if report_paths:
+    if not report_paths:
+        add("OK", "レポート本文のファイルが実在する", "ローカルに置いた本文は無し（Notion側に置く運用）")
+    else:
         add("NG" if missing else "OK", "レポート本文のファイルが実在する",
             "欠け: " + "、".join(missing) if missing else f"{len(report_paths)} 件すべて実在")
 

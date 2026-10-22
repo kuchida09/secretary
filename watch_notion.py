@@ -103,7 +103,7 @@ def snapshot(h):
     # レポート（意思決定の枠組み）
     for row in post(h, f"/data_sources/{REPORT_DS}/query", {"page_size": 50}).get("results", []):
         p = row["properties"]
-        snap["rep:" + row["id"]] = "|".join([txt(p.get("件名")), txt(p.get("状態")), txt(p.get("修正メモ"))])
+        snap["rep:" + row["id"]] = "|".join([txt(p.get("状態")), txt(p.get("修正メモ"))])
     # 確認事項（アプリで答えるもの）
     for row in post(h, f"/data_sources/{QA_DS}/query", {"page_size": 100}).get("results", []):
         p = row["properties"]
@@ -166,7 +166,10 @@ def main():
         if k in ("sign", "memo"):
             continue
         if now.get(k) != old.get(k):
-            label = {"r:": "提案", "t:": "タスク", "rep:": "レポート", "qa:": "確認事項"}.get(k[:4], "その他")
+            # こちらが作った/直しただけのレポートでは起きない（利用者の判断だけを見る）
+            if k.startswith("rep:") and k not in old:
+                continue
+            label = {"r": "提案", "t": "タスク", "rep": "レポート", "qa": "確認事項"}.get(k.split(":", 1)[0], "その他")
             if label not in kinds:
                 kinds.append(label)
             detail.append(f"{label}|{k.split(':',1)[1][:8]}|{(old.get(k) or '（新規）')} → {now.get(k)}")
