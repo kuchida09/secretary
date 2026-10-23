@@ -369,12 +369,21 @@ async function load(){
     card.appendChild(top);
     const t = $("div","title"); t.textContent = title.replace(/^#\S+\s*/,"");
     card.appendChild(t);
-    // Hermes からの説明と提案の本文は、カードに出さず「詳細を開く」の中に入れる（本人のコメント欄と混ざらないように）
-    const body = $("div","body"); body.innerHTML = '<div class="sub">読み込み中…</div>'; body.style.display = "none";
-    const dbtn = $("button","act q det"); dbtn.textContent = "詳細を開く";
-    dbtn.onclick = () => { const op = body.style.display !== "none";
-      body.style.display = op ? "none" : "block"; dbtn.textContent = op ? "詳細を開く" : "詳細を閉じる"; };
-    card.appendChild(dbtn); card.appendChild(body);
+    // 好み調査のカードは例文を最初から開いて見せる（詳細トグルに隠すと違いが見えないため）
+    const isStyle = title.indexOf("書き方の好み") >= 0;
+    const body = $("div","body"); body.innerHTML = '<div class="sub">読み込み中…</div>';
+    let dbtn = null;
+    if(isStyle){
+      body.style.display = "block";
+      card.appendChild(body);
+    } else {
+      // Hermes からの説明と提案の本文は、カードに出さず「詳細を開く」の中に入れる（本人のコメント欄と混ざらないように）
+      body.style.display = "none";
+      dbtn = $("button","act q det"); dbtn.textContent = "詳細を開く";
+      dbtn.onclick = () => { const op = body.style.display !== "none";
+        body.style.display = op ? "none" : "block"; dbtn.textContent = op ? "詳細を開く" : "詳細を閉じる"; };
+      card.appendChild(dbtn); card.appendChild(body);
+    }
     // コメント欄 → ボタン
     const cwrap = $("div","cwrap");
     const commentBox = document.createElement("textarea");
@@ -436,6 +445,17 @@ async function load(){
     row.append(bGo, mk("直して","",true), mk("追加で調べて","",true),
                mk("判断延期","q"), mk("見送る","q"), mk("コメントを保存","q"), undo);
     card.appendChild(row);
+    // 好み調査のカードは、数字ボタンで答えられるようにする（押すとその番号をコメントに残して答え済みにする）
+    if(isStyle){
+      const nrow = $("div","row"); nrow.style.margin = "6px 0 0";
+      const lab = $("span","sub"); lab.textContent = "番号をタップ:"; nrow.appendChild(lab);
+      ["1","2","3"].forEach(n => {
+        const b = $("button","act p"); b.textContent = n; b.style.minWidth = "52px"; b.style.fontWeight = "700";
+        b.onclick = async () => { commentBox.value = n; try{ localStorage.setItem(dkey, n); }catch(e){} await setState("対応済み"); };
+        nrow.appendChild(b);
+      });
+      card.appendChild(nrow);
+    }
     const jh = $("div","meta");
     jh.textContent = "「直して」「追加で調べて」は、上のコメント欄に内容を書いてから押します。「コメントを保存」は状態を変えずにコメントだけ残します。";
     card.appendChild(jh);
