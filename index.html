@@ -34,19 +34,20 @@
   .counts b{display:block;font-size:21px;font-family:"Hiragino Mincho ProN",serif}
   .counts span{font-size:10.5px;color:var(--soft)}
   section{margin-bottom:32px}
-  .head{display:flex;align-items:baseline;gap:8px;margin-bottom:10px}
-  .head h2{font-size:16.5px;margin:0}
+  .head{display:flex;align-items:baseline;gap:8px;margin-bottom:12px;border-bottom:1px solid var(--line);padding-bottom:6px}
+  .head h2{font-size:19px;margin:0}
   .head .c{font-size:11.5px;color:var(--soft)}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 15px;margin-bottom:12px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 15px;margin-bottom:14px}
   .card.gone{opacity:.5}
-  .num{font-size:11.5px;color:var(--accent);font-weight:700}
-  .title{font-size:15.5px;font-weight:600;margin:2px 0 8px}
-  .body{font-size:13.5px;color:var(--ink);background:var(--alt);border:1px solid var(--line);
-    border-radius:10px;padding:11px 12px;margin-top:10px;line-height:1.65}
+  .num{font-size:12px;color:var(--accent);font-weight:700}
+  .title{font-size:17px;font-weight:700;line-height:1.45;margin:4px 0 10px}
+  .body{font-size:14.5px;color:var(--ink);background:var(--alt);border:1px solid var(--line);
+    border-radius:10px;padding:12px 13px;margin-top:12px;line-height:1.75}
   .body:empty{display:none}
-  .body h2,.body h3,.body h4{font-size:15px;color:var(--ink);margin:14px 0 6px;font-weight:700}
+  .body h2,.body h3{font-size:15.5px;color:var(--ink);margin:20px 0 6px;font-weight:700;padding-left:9px;border-left:3px solid var(--accent)}
+  .body h4{font-size:14.5px;color:var(--ink);margin:16px 0 4px;font-weight:700}
   .body h2:first-child,.body h3:first-child,.body p:first-child{margin-top:0}
-  .body p{margin:6px 0}
+  .body p{margin:9px 0}
   /* 平文の段落でも階層が見えるようにする（行頭の印で判定。好み調査のカードなど） */
   .body p.lbl-diff{background:var(--accent-soft);border-left:3px solid var(--accent);padding:7px 9px;border-radius:8px;font-weight:700;font-size:14px;line-height:1.7;margin:2px 0 10px}
   .body p.lbl-hint{font-size:12.5px;color:var(--soft);font-weight:600;margin:0 0 10px}
@@ -54,6 +55,8 @@
   .body p.lbl-pre{font-size:12.5px;color:var(--soft);margin:0 0 10px}
   .body p.opt{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;padding:8px 10px;margin:8px 0;font-size:14px;line-height:1.75}
   .body p.opt b{color:var(--accent);font-size:15.5px;margin-right:2px}
+  .body p.opt-cont{background:var(--card);border-left:4px solid var(--accent);border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:4px 10px;margin:0;font-size:14px;line-height:1.75}
+  .body p.opt-cont:last-child{border-bottom-left-radius:8px;border-bottom-right-radius:8px}
   .body ul,.body ol{margin:4px 0;padding-left:1.2em}
   .body li{margin:2px 0}
   .body table{border-collapse:collapse;width:100%;font-size:12.5px;margin:8px 0;display:block;overflow-x:auto}
@@ -63,13 +66,13 @@
   .body hr{border:0;border-top:1px solid var(--line);margin:10px 0}
   .body code{font-size:12px;background:var(--card);padding:1px 4px;border-radius:4px}
   .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
-  button.act{font-family:inherit;font-size:13px;font-weight:600;padding:8px 13px;border-radius:9px;
+  button.act{font-family:inherit;font-size:13.5px;font-weight:600;min-height:40px;padding:8px 13px;border-radius:9px;
     border:1px solid var(--line);background:var(--alt);color:var(--ink)}
   button.act.p{background:var(--accent);border-color:var(--accent);color:#fff}
   button.act.q{background:transparent}
   button.act:disabled{opacity:.45}
   button.act.done{background:var(--done-soft);border-color:var(--done);color:var(--done);opacity:1}
-  textarea.cmt{width:100%;box-sizing:border-box;font-family:inherit;font-size:14px;line-height:1.5;
+  textarea.cmt{width:100%;box-sizing:border-box;font-family:inherit;font-size:16px;line-height:1.5;
     padding:10px 11px;border:1px solid var(--line);border-radius:11px;background:var(--paper);color:var(--ink);
     min-height:104px;margin:9px 0 2px;resize:vertical}
   .row{margin-top:8px;display:flex;gap:8px;flex-wrap:wrap}
@@ -94,11 +97,11 @@
     box-shadow:0 6px 16px rgba(184,92,58,.28)}
   button.sign:active{transform:translateY(1px);box-shadow:0 3px 10px rgba(184,92,58,.24)}
   button.sign:disabled{opacity:.5;box-shadow:none}
-  .chip{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;background:var(--alt);color:var(--soft);white-space:nowrap}
+  .chip{font-size:12px;font-weight:700;padding:3px 9px;border-radius:20px;background:var(--alt);color:var(--soft);white-space:nowrap}
   .chip.u{background:var(--urgent-soft);color:var(--urgent)}
   .chip.d{background:var(--done-soft);color:var(--done)}
   .cwrap{margin-top:12px}
-  .cinput{width:100%;min-height:96px;font:inherit;font-size:14.5px;padding:11px;border:1px solid var(--line);
+  .cinput{width:100%;min-height:96px;font:inherit;font-size:16px;padding:11px;border:1px solid var(--line);
     border-radius:9px;background:var(--alt);color:var(--ink);resize:vertical}
   .hint{font-size:11.5px;color:var(--soft);line-height:1.65;margin:0 0 12px;
     background:var(--alt);border-radius:10px;padding:9px 11px}
@@ -114,7 +117,9 @@
   #setup a{color:var(--accent);font-size:12.5px}
   .err{color:var(--urgent);font-size:13px}
   footer{font-size:11.5px;color:var(--soft);border-top:1px solid var(--line);padding-top:12px;margin-top:8px}
-  .busy{font-size:12px;color:var(--accent);min-height:16px}
+  .busy{font-size:13px;color:var(--ink);min-height:16px}
+  .busy:not(:empty){position:sticky;top:0;z-index:20;background:var(--accent-soft);border:1px solid var(--accent);border-radius:10px;padding:8px 12px;margin-bottom:10px}
+  button.act.p{font-size:15px;font-weight:700;min-height:46px}
   .upcard{background:var(--accent-soft);border-color:var(--accent)}
   .upcard .title{font-size:14.5px;margin:0 0 4px}
   .upcard ul{margin:2px 0 8px;padding-left:1.15em;font-size:13px}
@@ -151,16 +156,19 @@ const esc = s => (s||"").replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&g
 //   違いはここ: → 帯で強調／見分け方: → 小さめの補足／問い: → 見出し／前提: → 小さめの補足／1: 2: 3: → 選択肢の枠
 const styleBody = (root) => {
   if(!root) return;
+  let inOpt = false;
   root.querySelectorAll("p").forEach(p => {
     const t = (p.textContent || "").trim();
-    if(/^違いはここ[:：]/.test(t)) p.classList.add("lbl-diff");
-    else if(/^見分け方[:：]/.test(t)) p.classList.add("lbl-hint");
-    else if(/^問い[:：]/.test(t)) p.classList.add("lbl-q");
-    else if(/^前提[:：]/.test(t)) p.classList.add("lbl-pre");
+    if(/^違いはここ[:：]/.test(t)) { p.classList.add("lbl-diff"); inOpt = false; }
+    else if(/^見分け方[:：]/.test(t)) { p.classList.add("lbl-hint"); inOpt = false; }
+    else if(/^問い[:：]/.test(t)) { p.classList.add("lbl-q"); inOpt = false; }
+    else if(/^前提[:：]/.test(t)) { p.classList.add("lbl-pre"); inOpt = false; }
     else if(/^[123][:：]/.test(t)) {
       p.classList.add("opt");
       p.innerHTML = p.innerHTML.replace(/^([123])[:：]\s*/, "<b>$1</b> ");
+      inOpt = true;
     }
+    else if(inOpt) { p.classList.add("opt-cont"); }   // 選択肢が複数段落にまたがる場合
   });
 };
 const stamp = () => { const n=new Date(), p=x=>String(x).padStart(2,"0");
