@@ -150,15 +150,10 @@ def main():
         last_wake = 0.0
     if not sign_changed and (time.time() - last_wake) < 480:
         return
-    if not DRY:
-        try:
-            wakep.write_text(str(time.time()), encoding="utf-8")
-        except Exception:
-            pass
 
     # 差分の詳細はファイルに残し、配信する出力は短い「合図」だけにする
     # （この出力は「合図ジョブ」がそのまま Discord に配信する。空なら何も送られない）
-    detail, kinds = [], []
+    detail, kinds, suppressed = [], [], []
     if now.get("sign") and now.get("sign") != old.get("sign"):
         kinds.append("読了サイン")
         detail.append("読了サイン: " + now["sign"])
@@ -166,10 +161,13 @@ def main():
         if k in ("sign", "memo"):
             continue
         if now.get(k) != old.get(k):
-            # こちらが作った/直しただけのレポートでは起きない（利用者の判断だけを見る）
-            if k.startswith("rep:") and k not in old:
-                continue
             label = {"r": "提案", "t": "タスク", "rep": "レポート", "qa": "確認事項"}.get(k.split(":", 1)[0], "その他")
+            # こちら（Hermes）が新しく作った行では起きない（利用者の操作だけを見る）。
+            # レポート・確認提案・確認事項はどれも Hermes が作るので、新規行は自分の書き込み。
+            if k.split(":", 1)[0] in ("rep", "r", "qa") and k not in old:
+                suppressed.append(label)
+                detail.append(f"（自分の作成分・起きない）{label}|{k.split(':',1)[1][:8]}")
+                continue
             if label not in kinds:
                 kinds.append(label)
             detail.append(f"{label}|{k.split(':',1)[1][:8]}|{(old.get(k) or '（新規）')} → {now.get(k)}")
@@ -186,7 +184,28 @@ def main():
     except Exception:
         pass
 
-    print("✅ 受け取りました（" + "・".join(kinds or ["操作"]) + "）。処理は担当の係が行います。")
+    # 自分の作成分（新しく作った行）だけが変わった回は起きない。利用者の操作が無いため。
+    # 何が変わったかは起動記録に残す（「不明」を無くす）。
+    if not kinds:
+        if not DRY:
+            try:
+                logp = pathlib.Path(__file__).resolve().parent / "wake_log.txt"
+                with logp.open("a", encoding="utf-8") as fh:
+                    fh.write(time.strftime("%Y-%m-%d %H:%M", jst_now()) + " change 自分の作成分(" +
+                             ("・".join(suppressed) or "差分のみ") + ") 起きず\n")
+                lines = logp.read_text(encoding="utf-8").splitlines()[-2000:]
+                logp.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            except Exception:
+                pass
+        return
+
+    if not DRY:
+        try:
+            wakep.write_text(str(time.time()), encoding="utf-8")
+        except Exception:
+            pass
+
+    print("✅ 受け取りました（" + "・".join(kinds) + "）。処理は担当の係が行います。")
     if DRY:
         return
     try:
@@ -194,7 +213,7 @@ def main():
         with logp.open("a", encoding="utf-8") as fh:
             fh.write(time.strftime("%Y-%m-%d %H:%M", jst_now()) + " " +
                      ("sign" if now.get("sign") != old.get("sign") else "change") + " " +
-                     ("・".join(kinds) or "不明") + "\n")
+                     "・".join(kinds) + "\n")
         lines = logp.read_text(encoding="utf-8").splitlines()[-2000:]
         logp.write_text("\n".join(lines) + "\n", encoding="utf-8")
     except Exception:
