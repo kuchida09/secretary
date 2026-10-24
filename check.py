@@ -160,6 +160,59 @@ def check_notion():
             "欠け: " + "、".join(missing) if missing else f"{len(report_paths)} 件すべて実在")
 
 
+def check_report_summary():
+    """レポート本文の先頭に「要点」があるか（#67・2026-10-24 承認）。
+
+    Notion 側に置いた本文の、直近3件だけを見る。先頭5ブロックに
+    要点にあたる見出し・文が無ければ「注意」を出す（NG にはしない＝止めない）。
+    """
+    key = notion_key()
+    if not key:
+        add("注意", "レポート本文の先頭に要点がある", "トークンが見つからない")
+        return
+    h = {"Authorization": f"Bearer {key}", "Notion-Version": "2025-09-03", "Content-Type": "application/json"}
+    try:
+        req = urllib.request.Request(
+            "https://api.notion.com/v1/data_sources/a54924f2-1ca7-44f5-b5d1-47576d368aff/query",
+            data=json.dumps({"page_size": 20,
+                             "sorts": [{"timestamp": "last_edited_time", "direction": "descending"}]}).encode(),
+            headers=h, method="POST")
+        rows = json.loads(urllib.request.urlopen(req, timeout=30).read()).get("results", [])
+    except Exception as exc:
+        add("注意", "レポート本文の先頭に要点がある", type(exc).__name__)
+        return
+
+    keywords = ("要点", "まとめ", "ひとこと", "3行", "結論", "要約")
+    checked, missing = 0, []
+    for r in rows:
+        loc = "".join(x.get("plain_text", "") for x in r["properties"].get("場所", {}).get("rich_text", [])).strip()
+        m = re.search(r"([0-9a-f]{32})", loc)
+        if not m:
+            continue
+        checked += 1
+        if checked > 3:
+            break
+        try:
+            breq = urllib.request.Request(f"https://api.notion.com/v1/blocks/{m.group(1)}/children?page_size=8",
+                                          headers=h)
+            blocks = json.loads(urllib.request.urlopen(breq, timeout=30).read()).get("results", [])
+        except Exception:
+            continue
+        head = []
+        for b in blocks:
+            t = b.get("type")
+            if t in ("paragraph", "heading_1", "heading_2", "heading_3"):
+                head.append("".join(x.get("plain_text", "") for x in b[t]["rich_text"]))
+        if not any(k in " ".join(head[:5]) for k in keywords):
+            title = "".join(x.get("plain_text", "") for x in r["properties"].get("件名", {}).get("title", []))
+            missing.append(title[:24] or "（無題）")
+    if not checked:
+        add("OK", "レポート本文の先頭に要点がある", "Notion 側の本文は無し")
+    else:
+        add("注意" if missing else "OK", "レポート本文の先頭に要点がある",
+            ("先頭に要点が無い: " + "、".join(missing)) if missing else f"直近{checked}件は要点あり")
+
+
 def check_published():
     try:
         with urllib.request.urlopen(APP_URL, timeout=30) as r:
@@ -185,6 +238,7 @@ def main():
     check_no_secrets()
     check_no_patient_info()
     check_notion()
+    check_report_summary()
     check_published()
 
     ng = [r for r in results if r[0] == "NG"]

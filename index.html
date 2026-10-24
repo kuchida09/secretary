@@ -66,7 +66,7 @@
   .body hr{border:0;border-top:1px solid var(--line);margin:10px 0}
   .body code{font-size:12px;background:var(--card);padding:1px 4px;border-radius:4px}
   .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
-  button.act{font-family:inherit;font-size:13.5px;font-weight:600;min-height:40px;padding:8px 13px;border-radius:9px;
+  button.act{font-family:inherit;font-size:14px;font-weight:600;min-height:44px;padding:8px 13px;border-radius:9px;
     border:1px solid var(--line);background:var(--alt);color:var(--ink)}
   button.act.p{background:var(--accent);border-color:var(--accent);color:#fff}
   button.act.q{background:transparent}
@@ -103,7 +103,7 @@
   .cwrap{margin-top:12px}
   .cinput{width:100%;min-height:96px;font:inherit;font-size:16px;padding:11px;border:1px solid var(--line);
     border-radius:9px;background:var(--alt);color:var(--ink);resize:vertical}
-  .hint{font-size:11.5px;color:var(--soft);line-height:1.65;margin:0 0 12px;
+  .hint{font-size:12.5px;color:var(--soft);line-height:1.65;margin:0 0 12px;
     background:var(--alt);border-radius:10px;padding:9px 11px}
   .hint b{color:var(--ink)}
   .cnow{font-size:12.5px;color:var(--ink);background:var(--accent-soft);border-radius:8px;padding:7px 10px;margin-top:8px}
@@ -123,6 +123,18 @@
   .upcard{background:var(--accent-soft);border-color:var(--accent)}
   .upcard .title{font-size:14.5px;margin:0 0 4px}
   .upcard ul{margin:2px 0 8px;padding-left:1.15em;font-size:13px}
+  .sumbar{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 14px;margin:0 0 10px;
+    font-size:15px;font-weight:700;line-height:1.6}
+  .sumbar .u{color:var(--urgent)}
+  .upbar{margin:0 0 14px}
+  .upbar>button.act{width:100%;text-align:left;font-size:13.5px}
+  .upbar .upbody{display:none;margin-top:8px}
+  .gist{font-size:15px;line-height:1.7;margin:2px 0 10px;font-weight:600}
+  .gist .chg{display:block;font-size:14px;font-weight:400;color:var(--ink);margin-top:4px}
+  .overdue,.title.overdue{color:var(--urgent)}
+  .gist.missing{background:var(--urgent-soft);color:var(--urgent);border-radius:9px;padding:8px 11px;font-size:13.5px}
+  .mainrow button.act{flex:1 1 30%;min-width:0}
+  .mainrow button.act.p{flex:1 1 100%}
   .noway{background:var(--urgent-soft);color:var(--urgent);font-weight:700;font-size:13.5px;
     border-radius:9px;padding:9px 11px;margin:8px 0}
 </style>
@@ -309,14 +321,19 @@ function mdToHtml(md){
 // 更新情報（アプリを直したら APP_VER を上げる。次に開いたときだけ上に出る）
 function updateCard(){
   try{ if(localStorage.getItem("app_ver_seen") === APP_VER) return null; }catch(e){}
-  const box = $("div","card upcard");
-  const t = $("div","title"); t.textContent = "🔧 アプリを更新しました（"+APP_VER+"）"; box.appendChild(t);
+  const box = $("div","upbar");
+  const tg = $("button","act det");
+  const paintTg = (o) => { tg.textContent = "🔧 アプリを更新しました（"+APP_NOTES.length+"件）"+(o?" ▲":" ▼"); };
+  paintTg(false);
+  const inner = $("div","card upcard upbody");
   const ul = $("ul");
   for(const n of APP_NOTES){ const li = document.createElement("li"); li.textContent = n; ul.appendChild(li); }
-  box.appendChild(ul);
+  inner.appendChild(ul);
   const b = $("button","act q"); b.textContent = "確認した（次から出さない）";
   b.onclick = () => { try{ localStorage.setItem("app_ver_seen", APP_VER); }catch(e){} box.remove(); };
-  box.appendChild(b);
+  inner.appendChild(b);
+  tg.onclick = () => { const o = inner.style.display !== "block"; inner.style.display = o ? "block" : "none"; paintTg(o); };
+  box.append(tg, inner);
   return box;
 }
 
@@ -324,13 +341,12 @@ async function load(){
   app.innerHTML = "";
   setBusy("読み込み中…");
   const uc = updateCard();
-  if(uc) app.appendChild(uc);
   const head = $("div","top");
   const left = $("div");
   const d = new Date();
   left.innerHTML = '<h1>秘書</h1><div class="sub">'+
     d.getFullYear()+"年"+(d.getMonth()+1)+"月"+d.getDate()+"日 "+"日月火水木金土"[d.getDay()]+"曜日</div>";
-  const rb = $("button","refresh"); rb.textContent="更新";
+  const rb = $("button","refresh"); rb.textContent="更新"; rb.style.minHeight="44px"; rb.style.minWidth="52px";
   rb.onclick = () => load();
   head.append(left, rb);
   app.appendChild(head);
@@ -371,36 +387,102 @@ async function load(){
   const today = new Date().toISOString().slice(0,10);
   const late = openTasks.filter(t => { const d=txt(t.properties["期限"]); return d && d<=today; }).length;
 
-  const c = $("div","counts");
-  c.innerHTML = '<div><b>'+open.length+'</b><span>判断まち</span></div>'+
-                '<div><b>'+openTasks.length+'</b><span>未完了タスク</span></div>'+
-                '<div><b'+(late?' style="color:var(--urgent)"':'')+'>'+late+'</b><span>期限内に要対応</span></div>';
+  const c = $("div","sumbar");
+  c.innerHTML = '判断 '+open.length+'件　タスク '+openTasks.length+'件'+
+    (late ? '　<span class="u">今日までが '+late+'件</span>' : '');
   app.appendChild(c);
+  if(uc) app.appendChild(uc);
 
   // ---- 判断が必要なもの ----
   const s1 = $("section");
   s1.innerHTML = '<div class="head"><h2>判断が必要なもの</h2><span class="c">'+open.length+'件</span></div>';
   const hint = $("div","hint");
-  hint.innerHTML = "<b>この案で進める</b>＝提案のとおり実行します（提案が「やらない」のときは「やらない方針にする」という意味です）<br>"+
-    "<b>直して</b>・<b>追加で調べて</b>＝上のコメント欄に内容を書いてから押します（押しても、あとから取り消せます）<br>"+
-    "<b>判断延期</b>＝いまは決めない（次にまた聞きます）／<b>見送る</b>＝この提案を取り下げる";
+  hint.innerHTML = "<b>この案で進める</b>＝提案どおり実行／<b>あとで</b>＝いまは決めない（また聞きます）／<b>見送る</b>＝取り下げ。"+
+    "直す内容を伝えたいときは「その他」を押してください（押したあとも取り消せます）。";
   s1.appendChild(hint);
-  if(open.length===0) s1.appendChild($("div","empty")).textContent = "いまはありません。";
+  // 2つのまとまりに分ける: A＝いま動かす業務の提案（先に出す）／B＝書き方の好み（アンケート。畳んでおく）
+  const isPref = (ti) => /^(会話の書き方|研究計画書の書き方|メールの書き方|書き方|長い文章|進め方)[:：]|^採番/.test(ti.replace(/^#\S+\s*/,""));
+  // Hermes 自身の障害・内部の話（題名で判定。本文に「私の作業」があるものは、本文を読んだあとで移す）
+  const isInternal = (ti) => /端末|索引|採番|起動記録|書き戻し/.test(ti.replace(/^#\S+\s*/,""));
+  const boxA = $("div");
+  s1.appendChild(boxA);
+  const emptyA = $("div","empty"); emptyA.textContent = "いま動かすものはありません。"; emptyA.style.display = "none";
+  s1.appendChild(emptyA);
+  // 畳む枠（見出し＋件数＋開閉ボタン）。件数は paint で数え直す
+  const makeFold = (label, box) => {
+    const wrap = $("div"); wrap.style.marginTop = "22px"; wrap.style.display = "none";
+    const hd = $("div","head"); const h = $("h2"); h.textContent = label; const cc = $("span","c"); hd.append(h, cc);
+    const tg = $("button","act q"); tg.style.width = "100%";
+    let o = false;
+    const paint = () => {
+      box.style.display = o ? "block" : "none";
+      const n = box.querySelectorAll(":scope > .card").length;
+      cc.textContent = n+"件"; tg.textContent = n+"件を"+(o ? "閉じる ▲" : "開く ▼");
+      wrap.style.display = n ? "block" : "none";
+    };
+    tg.onclick = () => { o = !o; paint(); };
+    wrap.append(hd, tg, box);
+    return { wrap, paint };
+  };
+  const boxI = $("div"), boxB = $("div");
+  const foldI = makeFold("🔧 私の内部（あなたの判断が不要なもの）", boxI);
+  const foldB = makeFold("書き方の好み（アンケート）", boxB);
+  s1.appendChild(foldI.wrap);   // 業務の提案(A)→私の内部→書き方の好み(B) の順
+  s1.appendChild(foldB.wrap);
+  const recount = () => {
+    const nA = boxA.querySelectorAll(":scope > .card").length;
+    s1.querySelector(".c").textContent = nA+"件";
+    emptyA.style.display = nA ? "none" : "block";
+    foldI.paint(); foldB.paint();
+  };
+  // 並び順: 期限のあるものを期限の早い順に先頭へ、期限なしはその後ろ（新しく入った順）
+  const dueOf = r => txt(r.properties["期限"]) || "";
+  const byDue = (a, b) => {
+    const da = dueOf(a), db2 = dueOf(b);
+    if(da && db2) return da < db2 ? -1 : da > db2 ? 1 : 0;
+    if(da) return -1; if(db2) return 1;
+    return (b.created_time||"").localeCompare(a.created_time||"");
+  };
+  open.sort(byDue);
+  // 期限の文字（「11/11 17:00」「2026-12-25」「12/25」など）を {day: その日の0時のms, t: 時刻つきの並べ替え用ms} にする
+  const todayMs = (() => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime(); })();
+  const parseDue = (s) => {
+    s = s || ""; let y, mo, d, m;
+    if(m = s.match(/(\d{4})[-\/年](\d{1,2})[-\/月](\d{1,2})/)){ y = +m[1]; mo = +m[2]; d = +m[3]; }
+    else if(m = s.match(/(\d{1,2})[\/月](\d{1,2})/)){
+      mo = +m[1]; d = +m[2]; y = new Date(todayMs).getFullYear();
+      if(new Date(y, mo-1, d).getTime() < todayMs - 180*86400000) y++;   // 半年以上前の月日は来年とみなす
+    } else return null;
+    const day = new Date(y, mo-1, d).getTime();
+    const tm = s.match(/(\d{1,2}):(\d{2})/);
+    return { day: day, t: day + (tm ? (+tm[1]*60 + +tm[2])*60000 : 0) };
+  };
+  const daysTxt = (k) => { const n = Math.round((k.day - todayMs)/86400000);
+    return n < 0 ? "過ぎています" : n === 0 ? "今日" : "あと"+n+"日"; };
+  const loads = [];
   for(const r of open){
     const card = $("div","card");
     const title = txt(r.properties["件名"]);
+    const host = isInternal(title) ? boxI : (isPref(title) ? boxB : boxA);
     const kind = txt(r.properties["種類"]);
     const due = txt(r.properties["期限"]);
     const memo2 = txt(r.properties["コメント"]);
     const replied = txt(r.properties["Hermes の対応"]);
     const top = $("div","row");
     top.style.margin = "0 0 2px";
-    top.innerHTML = '<span class="num">'+esc(title.split(" ")[0]||"")+'</span>'+
+    // 番号は「#68 …」のように先頭にあるときだけ出す（無いのに題名の先頭語を出すと題名が二重になる）
+    top.innerHTML = '<span class="num">'+esc((title.match(/^#\S+/)||[""])[0])+'</span>'+
       '<span class="chip">'+esc(kind||"提案")+'</span>'+
       (due ? '<span class="chip u">期限 '+esc(due)+'</span>' : "");
+    card._key = parseDue(due);   // 並べ替えのキー（本文の「期限:」行が取れたら上書きする）
+    if(card._key){ const dc = top.querySelector(".chip.u"); if(dc) dc.textContent += "（"+daysTxt(card._key)+"）"; }
     card.appendChild(top);
     const t = $("div","title"); t.textContent = title.replace(/^#\S+\s*/,"");
     card.appendChild(t);
+    // 「何をどうする」の一文（提案ページの「要点:」「変わること:」行。読み込み後に入れる）
+    const gist = $("div","gist");
+    gist.style.display = "none";
+    card.appendChild(gist);
     // 好み調査のカードは例文を最初から開いて見せる（詳細トグルに隠すと違いが見えないため）
     const isStyle = title.indexOf("書き方の好み") >= 0;
     const body = $("div","body"); body.innerHTML = '<div class="sub">読み込み中…</div>';
@@ -426,7 +508,7 @@ async function load(){
     { const dv = localStorage.getItem(dkey); if(dv) commentBox.value = dv; }
     commentBox.addEventListener("input", ()=>{ try{ localStorage.setItem(dkey, commentBox.value); }catch(e){} });
     cwrap.appendChild(commentBox);
-    card.appendChild(cwrap);
+    cwrap.style.display = "none";   // 「その他」を押したときだけ出す
 
     if(replied){ const rp = $("div","cnow"); rp.textContent = "Hermes の対応: "+replied; card.appendChild(rp); }
 
@@ -451,17 +533,18 @@ async function load(){
         setBusy("コメントを保存しました（状態は変わりません）"); }
       catch(e){ setBusy("失敗: "+e.message); }
     };
-    const mk = (label, cls, need) => {
+    // label＝ボタンの文字、state＝Notion に書く状態名（省略時は label）
+    const mk = (label, cls, need, state) => {
       const b = $("button","act "+(cls||""));
       b.textContent = label;
       b.onclick = () => {
         if(need && !commentBox.value.trim()){ setBusy("先にコメントを書いてください"); commentBox.focus(); return; }
         if(label.indexOf("コメント")===0){ saveComment(); return; }
-        b.disabled = true; setState(label.replace(/（.*）/,""));
+        b.disabled = true; setState(state || label.replace(/（.*）/,""));
       };
       return b;
     };
-    const row = $("div","row");
+    const row = $("div","row mainrow");
     const undo = $("button","act q");
     undo.textContent = "取り消す（未確認に戻す）";
     undo.style.display = "none";
@@ -474,9 +557,21 @@ async function load(){
       undo.disabled = false;
     };
     const bGo = mk("この案で進める","p");
-    row.append(bGo, mk("直して","",true), mk("追加で調べて","",true),
-               mk("判断延期","q"), mk("見送る","q"), mk("コメントを保存","q"), undo);
-    card.appendChild(row);
+    // 主ボタンは3つだけ。「直して」「追加で調べて」「コメントだけ保存」は「その他」の中
+    row.append(bGo, mk("あとで","",false,"判断延期"), mk("見送る","q"));
+    const orow = $("div","row");
+    orow.append(mk("直して","",true), mk("追加で調べて","",true), mk("コメントを保存","q"));
+    const more = $("div"); more.style.display = "none";
+    const hint2 = $("div","meta");
+    hint2.textContent = "「直して」「追加で調べて」は、下の欄に内容を書いてから押します。";
+    more.append(hint2, cwrap, orow);
+    const mbtn = $("button","act q"); mbtn.textContent = "その他（直して・追加で調べて）▼";
+    mbtn.style.width = "100%"; mbtn.style.marginTop = "8px";
+    const paintMore = (o) => { more.style.display = o ? "block" : "none";
+      mbtn.textContent = "その他（直して・追加で調べて）" + (o ? "▲" : "▼"); };
+    mbtn.onclick = () => paintMore(more.style.display === "none");
+    if(commentBox.value) paintMore(true);   // 書きかけがあれば開いておく
+    if(!isStyle){ card.appendChild(row); card.appendChild(undo); card.appendChild(mbtn); card.appendChild(more); }
     // 好み調査のカードは、数字ボタンで答えられるようにする（押すとその番号をコメントに残して答え済みにする）
     if(isStyle){
       const nrow = $("div","row"); nrow.style.margin = "6px 0 0";
@@ -486,32 +581,102 @@ async function load(){
         b.onclick = async () => { commentBox.value = n; try{ localStorage.setItem(dkey, n); }catch(e){} await setState("対応済み"); };
         nrow.appendChild(b);
       });
+      nrow.appendChild(undo);
       card.appendChild(nrow);
     }
-    const jh = $("div","meta");
-    jh.textContent = "「直して」「追加で調べて」は、上のコメント欄に内容を書いてから押します。「コメントを保存」は状態を変えずにコメントだけ残します。";
-    card.appendChild(jh);
-    s1.appendChild(card);
+    host.appendChild(card);
 
-    api("/blocks/"+r.id+"/children?page_size=50").then(b=>{
+    card._created = r.created_time || "";
+    loads.push(api("/blocks/"+r.id+"/children?page_size=50").then(b=>{
       body.innerHTML = (memo2 ? '<div class="cnow">Hermes からの説明: '+esc(memo2)+'</div>' : "") + detailHtml(b.results);
       styleBody(body);
-      // 「やらない」ことを提案する内容なら、ボタンと帯で分かるようにする
+      // 「何をどうする」の一文: 「要点:」「変わること:」の行を抜き出す（無ければ Hermes の説明、それも無ければ赤帯）
       const plain = (b.results||[]).map(x => ((x[x.type]||{}).rich_text||[]).map(r=>r.plain_text).join("")).join("\n");
+      // 情報源は提案ページの本文だけ（「コメント」欄＝本人の書き込み、「Hermes の対応」欄＝作業記録は使わない）
+      if(!isStyle){
+        // 行に分け、見出し行（見出しブロック／「#」始まり）と題名と同じ文は候補から外す。行頭の空白・「-」「*」は無視
+        const norm = s => (s||"").replace(/^[\s#\-*・]+/, "").replace(/\s+/g, "").trim();
+        const titleN = norm(title).replace(/^\S*?/, "");
+        const titleN2 = norm(title.replace(/^#\S+\s*/, ""));
+        const isTitle = s => { const n = norm(s); return !n || n === norm(title) || n === titleN2 || n === titleN; };
+        const items = [];
+        for(const x of (b.results||[])){
+          const heading = /^heading_/.test(x.type);
+          for(const ln of blockText(x).split(/\r?\n/)){
+            const t = ln.replace(/^[\s\-*・]+/, "").trim();
+            if(!t) continue;
+            items.push({ h: heading || /^#{1,6}\s/.test(t), t: t });
+          }
+        }
+        const short = s => { const m = s.match(/^.*?。/); let v = (m ? m[0] : s).trim(); return v.length > 60 ? v.slice(0,60)+"…" : v; };
+        let main = "", chg = "";
+        for(const it of items){
+          if(it.h) continue;
+          let m;
+          if(!main && (m = it.t.match(/^要点[:：]\s*(.+)/)) && !isTitle(m[1])) main = short(m[1]);
+          if(!chg && (m = it.t.match(/^変わること[:：]\s*(.+)/))) chg = short(m[1]);
+        }
+        if(!main){   // 2. 「何の話か」の直後の1文
+          const i = items.findIndex(it => /^何の話か/.test(it.t));
+          if(i >= 0){
+            const rest = items[i].t.replace(/^何の話か[:：]?\s*/, "");
+            if(rest && !isTitle(rest)) main = short(rest);
+            else if(items[i+1] && !items[i+1].h && !isTitle(items[i+1].t)) main = short(items[i+1].t);
+          }
+        }
+        if(!main){   // 3. 見出し以外の最初の1文
+          const it = items.find(x => !x.h && !isTitle(x.t) && !/^(要点|変わること|見分け方|前提|問い|違いはここ)[:：]/.test(x.t));
+          if(it) main = short(it.t);
+        }
+        gist.style.display = "block";
+        gist.textContent = main || "本文を開いて確認してください";
+        // 進めると何が起きるか（本文の「変わること:」行がある時だけ。推測では書かない）
+        if(chg){ const sp = $("span","chg"); sp.innerHTML = "<b>進めると: </b>"+esc(chg); gist.appendChild(sp); }
+        // 本文の「期限:」「通知:」行を、題名の上の段に目立つラベルで出す
+        for(const it of items){
+          const m = !it.h && it.t.match(/^(期限|通知)[:：]\s*(.+)/);
+          if(m){
+            const dl = $("span","chip u"); dl.textContent = m[1]+" "+m[2].trim().slice(0,30);
+            const k = parseDue(m[2]);
+            if(k){ card._key = k; dl.textContent += "（"+daysTxt(k)+"）"; }
+            const old = top.querySelector(".chip.u"); if(old) old.remove();   // 一覧の期限と二重にしない
+            top.appendChild(dl); break;
+          }
+        }
+      }
+      // 本文が「私の作業」の話なら、判断欄ではなく「私の内部」へ移す
+      if(/私の作業/.test(plain) && card.parentNode === boxA){ boxI.appendChild(card); recount(); }
+      // 「やらない」ことを提案する内容なら、ボタンと帯で分かるようにする
       if(/やらないことを提案|やらない方針/.test(plain)){
         bGo.textContent = "やらない方針にする";
         const w = $("div","noway");
         w.textContent = "この提案は「やらない」内容です。押すと『やらない方針』で確定します（まちがえたら「取り消す」で戻せます）。";
-        card.insertBefore(w, row);
+        card.insertBefore(w, row.parentNode === card ? row : null);
       }
     }).catch(()=>{
       body.innerHTML = memo2 ? '<div class="cnow">Hermes からの説明: '+esc(memo2)+'</div>' : "";
-    });
+    }));
   }
+  recount();
+  // 本文がそろったら、各まとまりの中を期限順に並べ直す（本文の「期限:」行 → 無ければ一覧の期限。期限なしは後ろ・新しい順）
+  Promise.allSettled(loads).then(() => {
+    for(const box of [boxA, boxI, boxB]){
+      const cards = [...box.querySelectorAll(":scope > .card")];
+      cards.sort((a, b) => {
+        const ka = a._key ? a._key.t : null, kb = b._key ? b._key.t : null;
+        if(ka != null && kb != null) return ka - kb;
+        if(ka != null) return -1;
+        if(kb != null) return 1;
+        return (b._created||"").localeCompare(a._created||"");
+      });
+      for(const c of cards) box.appendChild(c);
+    }
+    recount();
+  });
   // 残高（デポジット）をいちばん上に出す（Notion の「💴 残高・使用量」を読む）
   const s0 = $("section");
-  s0.innerHTML = '<div class="head"><h2>AI利用の前払い残高</h2></div><div class="meta">openrouter.ai（AIの利用）に前払いした残りです。円で表示し、1,000円を切ったら Discord で知らせます。</div><div class="meta" id="balance-line">読み込み中…</div>';
-  app.appendChild(s0);
+  s0.innerHTML = '<div class="head"><h2>AI利用の前払い残高</h2></div><div class="meta">openrouter.ai（AIの利用）に前払いした残りです。1,000円を切ったら Discord で知らせます。</div><div class="meta" id="balance-line">読み込み中…</div>';
+  // 残高は月に数回しか見ないので、いちばん下（確認サインの前）に置く
   (async () => {
     try{
       const s = await api("/search", {method:"POST", body: JSON.stringify({query:"💴 残高・使用量", page_size:5})});
@@ -519,7 +684,7 @@ async function load(){
       if(!pg){ s0.classList.add("gone"); return; }
       const md = await api("/pages/" + pg.id.replace(/-/g,"") + "/markdown");
       const lines = (md.markdown||"").split("\n").map(x=>x.replace(/[#*]/g,"").trim()).filter(x=>x && !x.startsWith("残高・使用量"));
-      document.getElementById("balance-line").textContent = lines.slice(0,2).join("　") || "（まだ更新されていません）";
+      s0.querySelector("#balance-line").textContent = lines.slice(0,2).join("　") || "（まだ更新されていません）";
     }catch(e){ s0.classList.add("gone"); }
   })();
   app.appendChild(s1);
@@ -697,10 +862,13 @@ async function load(){
     const dueBtns = [];
     const top=$("div","row"); top.style.margin="0 0 2px";
     const paintTop = () => {
-      const late = due && due<=today;
-      top.innerHTML = (late?'<span class="chip u">期限 '+esc(due)+'</span>'
+      const d10 = (due||"").slice(0,10);
+      const past = d10 && d10 < today, isToday = d10 && d10 === today;
+      const late = past || isToday;
+      top.innerHTML = (late?'<span class="chip u">期限 '+esc(due)+(past?'（過ぎています）':'（今日）')+'</span>'
                           : (due?'<span class="chip">期限 '+esc(due)+'</span>':""))+
                      (pri?'<span class="chip">優先度 '+esc(pri)+'</span>':"");
+      const tl = card.querySelector(".title"); if(tl) tl.classList.toggle("overdue", !!late);
       for(const o of dueBtns){
         const d2 = new Date(); d2.setDate(d2.getDate()+o.days);
         const p2 = x => String(x).padStart(2,"0");
@@ -713,6 +881,7 @@ async function load(){
     paintTop();
     card.appendChild(top);
     const tt=$("div","title"); tt.textContent = name; card.appendChild(tt);
+    paintTop();   // 題名ができたので、期限切れ・今日なら題名も赤にする
     // メモはカード上に単独で出さず、「詳細を開く」の中にまとめて表示する（二重表示を防ぐ）
 
     // 詳細（タスクのページ本文をトグルで開く）
@@ -735,7 +904,7 @@ async function load(){
       } else { detail.style.display="none"; db.textContent="詳細を開く"; }
     };
 
-    const row=$("div","row");
+    const row=$("div","row mainrow");
     // コメントの保存状況をカード内に出す（ページ上部の一時メッセージは見落としやすいため）
     let savedMemo = memo;
     const cstat = $("div","stat");
@@ -792,7 +961,9 @@ async function load(){
         setBusy("送れませんでした。もう一度押してください。");
       }
     };
-    row.appendChild(b); row.appendChild(db); row.appendChild(bq);
+    row.appendChild(b);   // 主ボタンは「完了」「あとで（明日に）」「来週に」の3つ。詳細・調べてもらう・コメントは「その他」の中
+    // 延期したとき、いつ戻ってくるかを小さく出す
+    const dnote = $("div","meta"); dnote.style.display = "none";
     // リマインド（期限を明日／来週に）
     const mkDue = (label, days) => {
       const btn = $("button","act"); btn.textContent = label;
@@ -809,6 +980,8 @@ async function load(){
           await api("/pages/"+t.id, {method:"PATCH", body:JSON.stringify({properties:body})});
           due = wasSame ? "" : ds;
           paintTop();
+          dnote.textContent = wasSame ? "" : (days===1 ? "明日" : "来週")+"（"+(d.getMonth()+1)+"/"+d.getDate()+"）にまた出ます。";
+          dnote.style.display = wasSame ? "none" : "block";
           setBusy(wasSame ? "期限を取り消しました" : "期限を "+ds+" にしました（スマホへの通知はカレンダー経由です）");
         }
         catch(e){ setBusy("失敗: "+e.message); }
@@ -816,10 +989,19 @@ async function load(){
       };
       return btn;
     };
-    row.appendChild(mkDue("明日に", 1));
+    row.appendChild(mkDue("あとで（明日に）", 1));
     row.appendChild(mkDue("来週に", 7));
     card.appendChild(row);
-    card.appendChild(qline);
+    card.appendChild(dnote);
+    const tmore = $("div"); tmore.style.display = "none";
+    const mrow = $("div","row"); mrow.append(db, bq);
+    tmore.append(mrow, qline);
+    const tmbtn = $("button","act q"); tmbtn.style.width = "100%"; tmbtn.style.marginTop = "8px";
+    const paintTMore = (o) => { tmore.style.display = o ? "block" : "none";
+      tmbtn.textContent = "その他（詳細・調べてもらう・コメント）" + (o ? "▲" : "▼"); };
+    tmbtn.onclick = () => paintTMore(tmore.style.display === "none");
+    paintTMore(false);
+    card.appendChild(tmbtn); card.appendChild(tmore);
     // タスクへのコメント（メモ欄に保存する）
     const cwrap = $("div","cwrap");
     const cta = document.createElement("textarea"); cta.className = "cmt"; cta.rows = 2;
@@ -848,8 +1030,9 @@ async function load(){
       csave.disabled = false;
     };
     crow.appendChild(csave); cwrap.appendChild(crow);
-    cwrap.appendChild(cstat);
-    card.appendChild(cwrap);
+    tmore.appendChild(cwrap);
+    card.appendChild(cstat);
+    if(cta.value) paintTMore(true);   // 書きかけがあれば開いておく
     card.appendChild(detail);
     return card;
   };
@@ -872,6 +1055,8 @@ async function load(){
     s2.appendChild(h); s2.appendChild(box);
   }
   app.appendChild(s2);
+
+  app.appendChild(s0);
 
   // ---- 確認サイン（読了ボタン） ----
   const s4 = $("section");
