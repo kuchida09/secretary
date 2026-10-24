@@ -93,7 +93,7 @@ def main():
     for r in query(h, REVIEW_DS):
         p = r["properties"]
         st = txt(p.get("状態"))
-        if st in ("この案で進める", "直して", "追加で調べて"):
+        if st in ("この案で進める", "直して", "追加で調べて") and "対応:" not in txt(p.get("Hermes の対応")):
             items["rev:" + r["id"]] = f"提案への判断（{st}）: 「{txt(p.get('件名'))[:50]}」コメント: {txt(p.get('コメント'))[:120]}"
         # 書き方の好み調査への回答（アプリの数字ボタンで答えたもの。状態は 対応済み になる）
         #   → 集計は records/style/研究文の選択肢キー.json、記録は records/style/研究文の書き方.md を使う

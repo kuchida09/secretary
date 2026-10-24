@@ -510,7 +510,7 @@ async function load(){
   }
   // 残高（デポジット）をいちばん上に出す（Notion の「💴 残高・使用量」を読む）
   const s0 = $("section");
-  s0.innerHTML = '<div class="head"><h2>残高</h2></div><div class="meta" id="balance-line">読み込み中…</div>';
+  s0.innerHTML = '<div class="head"><h2>AI利用の前払い残高</h2></div><div class="meta">openrouter.ai（AIの利用）に前払いした残りです。円で表示し、1,000円を切ったら Discord で知らせます。</div><div class="meta" id="balance-line">読み込み中…</div>';
   app.appendChild(s0);
   (async () => {
     try{
