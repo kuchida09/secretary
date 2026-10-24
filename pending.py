@@ -95,6 +95,14 @@ def main():
         st = txt(p.get("状態"))
         if st in ("この案で進める", "直して", "追加で調べて"):
             items["rev:" + r["id"]] = f"提案への判断（{st}）: 「{txt(p.get('件名'))[:50]}」コメント: {txt(p.get('コメント'))[:120]}"
+        # 書き方の好み調査への回答（アプリの数字ボタンで答えたもの。状態は 対応済み になる）
+        #   → 集計は records/style/研究文の選択肢キー.json、記録は records/style/研究文の書き方.md を使う
+        elif ("書き方の好み" in txt(p.get("件名"))
+              and re.match(r"^[123]", txt(p.get("コメント")))
+              and "対応:" not in txt(p.get("Hermes の対応"))):
+            items["sty:" + r["id"]] = (f"書き方の好みへの回答: 「{txt(p.get('件名'))[:64]}」→ "
+                                       f"{txt(p.get('コメント'))[:40]}。"
+                                       f"手順は /workspace/records/style/好み回答の処理手順.md を読んで従う。")
     for r in query(h, TASKS_DS):
         p = r["properties"]
         if txt(p.get("状態")) == "完了" and txt(p.get("完了日")) == today:
