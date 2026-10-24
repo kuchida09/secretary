@@ -47,15 +47,15 @@
   .body h2,.body h3{font-size:15.5px;color:var(--ink);margin:20px 0 6px;font-weight:700;padding-left:9px;border-left:3px solid var(--accent)}
   .body h4{font-size:14.5px;color:var(--ink);margin:16px 0 4px;font-weight:700}
   .body h2:first-child,.body h3:first-child,.body p:first-child{margin-top:0}
-  .body p{margin:9px 0}
+  .body p{margin:11px 0}
   /* 平文の段落でも階層が見えるようにする（行頭の印で判定。好み調査のカードなど） */
   .body p.lbl-diff{background:var(--accent-soft);border-left:3px solid var(--accent);padding:7px 9px;border-radius:8px;font-weight:700;font-size:14px;line-height:1.7;margin:2px 0 10px}
   .body p.lbl-hint{font-size:12.5px;color:var(--soft);font-weight:600;margin:0 0 10px}
   .body p.lbl-q{font-weight:700;font-size:15px;margin:12px 0 4px}
   .body p.lbl-pre{font-size:12.5px;color:var(--soft);margin:0 0 10px}
-  .body p.opt{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;padding:8px 10px;margin:8px 0;font-size:14px;line-height:1.75}
+  .body p.opt{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;padding:9px 11px;margin:10px 0;font-size:14px;line-height:1.85}
   .body p.opt b{color:var(--accent);font-size:15.5px;margin-right:2px}
-  .body p.opt-cont{background:var(--card);border-left:4px solid var(--accent);border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:4px 10px;margin:0;font-size:14px;line-height:1.75}
+  .body p.opt-cont{background:var(--card);border-left:4px solid var(--accent);border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:8px 11px;margin:0;font-size:14px;line-height:1.85}
   .body p.opt-cont:last-child{border-bottom-left-radius:8px;border-bottom-right-radius:8px}
   .body ul,.body ol{margin:4px 0;padding-left:1.2em}
   .body li{margin:2px 0}
@@ -77,11 +77,11 @@
     min-height:104px;margin:9px 0 2px;resize:vertical}
   .row{margin-top:8px;display:flex;gap:8px;flex-wrap:wrap}
   .sub{font-size:13px;color:var(--soft);margin:14px 0 6px;font-weight:600}
-  .md{font-size:14px;line-height:1.75;color:var(--ink)}
+  .md{font-size:14px;line-height:1.85;color:var(--ink)}
   .md h2{font-size:15.5px;margin:16px 0 4px;border-bottom:1px solid var(--line);padding-bottom:3px}
   .md h3{font-size:14.5px;margin:13px 0 3px}
   .md h4{font-size:13.5px;margin:11px 0 2px}
-  .md p{margin:6px 0}
+  .md p{margin:9px 0}
   .md ul,.md ol{padding-left:1.2em;margin:6px 0}
   .md li{margin:3px 0}
   .md table{border-collapse:collapse;width:100%;font-size:12.5px;margin:8px 0;display:block;overflow-x:auto}
@@ -142,8 +142,9 @@ const QA_DS = "8d58d65b-8d15-4012-866a-772ee3942500";
 const NV = "2025-09-03";
 // アプリを直したら APP_VER を上げ、APP_NOTES に「何が変わったか」を書く。
 // 次に開いたときだけ、上に「更新情報」として出る（「確認した」で消える）。
-const APP_VER = "2026-10-20.3";
+const APP_VER = "2026-10-24.1";
 const APP_NOTES = [
+  "長い文章（カードの本文）の行間と段落の間隔を広げ、読みやすくしました。",
   "「明日に」「来週に」をもう一度押すと、期限を取り消せます（ボタンが「期限を取り消す」に変わります）。",
   "「詳細を開く」の中身を読みやすくしました（見出し・箇条書き・表・引用が使え、枠の中に整えて表示）。",
   "提案が「やらない」内容のときは、ボタンが「やらない方針にする」に変わります（本文にも赤い帯で表示）。",
