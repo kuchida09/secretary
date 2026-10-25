@@ -136,6 +136,20 @@
   .gist.missing{background:var(--urgent-soft);color:var(--urgent);border-radius:9px;padding:8px 11px;font-size:13.5px}
   .mainrow button.act{flex:1 1 30%;min-width:0}
   .mainrow button.act.p{flex:1 1 100%}
+  /* 1枚モード（全画面。カードを1件だけ大きく出す） */
+  #focus{position:fixed;inset:0;z-index:40;background:var(--paper);overflow-y:auto;
+    padding:0 14px calc(28px + env(safe-area-inset-bottom));max-width:880px;margin:0 auto}
+  #focus .fbar{position:sticky;top:0;z-index:2;background:var(--paper);display:flex;gap:8px;align-items:center;
+    padding:10px 0;border-bottom:1px solid var(--line)}
+  #focus .fbar button{flex:1 1 0;min-width:0;min-height:48px}
+  #focus .fpos{font-size:14px;font-weight:700;color:var(--soft);white-space:nowrap}
+  #focus .fmsg:not(:empty){background:var(--accent-soft);border:1px solid var(--accent);border-radius:10px;padding:8px 12px;margin-top:8px;font-size:13.5px}
+  #focus .fwhy{background:var(--urgent-soft);color:var(--urgent);font-weight:700;font-size:14.5px;border-radius:10px;padding:9px 12px;margin:10px 0}
+  .card.focused{margin:0;padding:16px}
+  .card.focused .title{font-size:21px;line-height:1.5}
+  .card.focused .gist{font-size:17px;line-height:1.75}
+  .card.focused .gist .chg{font-size:15.5px}
+  .card.focused button.act{min-height:52px;font-size:16px}
   .noway{background:var(--urgent-soft);color:var(--urgent);font-weight:700;font-size:13.5px;
     border-radius:9px;padding:9px 11px;margin:8px 0}
 </style>
@@ -155,12 +169,12 @@ const QA_DS = "8d58d65b-8d15-4012-866a-772ee3942500";
 const NV = "2025-09-03";
 // アプリを直したら APP_VER を上げ、APP_NOTES に「何が変わったか」を書く。
 // 次に開いたときだけ、上に「更新情報」として出る（「確認した」で消える）。
-const APP_VER = "2026-10-24.1";
+const APP_VER = "2026-10-25.1";
 const APP_NOTES = [
-  "長い文章（カードの本文）の行間と段落の間隔を広げ、読みやすくしました。",
-  "「明日に」「来週に」をもう一度押すと、期限を取り消せます（ボタンが「期限を取り消す」に変わります）。",
-  "「詳細を開く」の中身を読みやすくしました（見出し・箇条書き・表・引用が使え、枠の中に整えて表示）。",
-  "提案が「やらない」内容のときは、ボタンが「やらない方針にする」に変わります（本文にも赤い帯で表示）。",
+  "いちばん上に「期限が近い3件」。押すとそのカードへ移動します。「▶ 1件ずつ」で、1枚ずつ大きく見て判断できます（判断すると次へ進みます）。",
+  "判断カードは期限順・種類別に分け、30日より先のもの・Hermes 側の件・書き方のアンケートは畳みました。",
+  "ボタンを押すと、カードに「何が保存されたか」と「取り消す」が出ます。「コメントを書く」の中は「直す内容を伝える／追加で調べてもらう／コメントだけ残す」です。",
+  "「あとで」は明日の朝にまた出ます。「1週間後」で1週間先の日付に動かせます。期限を過ぎた件は赤字で「◯日過ぎています」と出ます。",
 ];
 const app = document.getElementById("app");
 const foot = document.getElementById("foot");
@@ -195,6 +209,7 @@ function setBusy(msg){
   let el = document.getElementById("busy");
   if(!el){ el = document.createElement("div"); el.id="busy"; el.className="busy"; }
   el.textContent = msg || "";
+  const fm = document.getElementById("fmsg"); if(fm) fm.textContent = msg || "";   // 1枚モード中は、その画面にも同じ案内を出す
   if(!el.parentNode) app.prepend(el);
 }
 
@@ -336,6 +351,12 @@ function mdToHtml(md){
 // 更新情報（アプリを直したら APP_VER を上げる。次に開いたときだけ上に出る）
 function updateCard(){
   try{ if(localStorage.getItem("app_ver_seen") === APP_VER) return null; }catch(e){}
+  // 押さなくても、最初に表示してから7日たったら自動で消える
+  try{
+    const fk = "app_ver_first_"+APP_VER, f = +localStorage.getItem(fk);
+    if(!f) localStorage.setItem(fk, String(Date.now()));
+    else if(Date.now() - f > 7*86400000) return null;
+  }catch(e){}
   const box = $("div","upbar");
   const tg = $("button","act det");
   const paintTg = (o) => { tg.textContent = "🔧 アプリを更新しました（"+APP_NOTES.length+"件）"+(o?" ▲":" ▼"); };
@@ -412,20 +433,25 @@ async function load(){
 
   const c = $("div","sumbar");
   // 件数の内訳を出す（畳んだ分は「ほか」）。期限が切れた・今日のタスクは押すとそこへ飛ぶ
-  let sumArgs = [open.length, 0], repN = 0;
+  let sumArgs = [open.length, 0], repN = 0, hideJump = false;   // hideJump: 「近い3件」に期限切れタスクが出ているときは、上の帯を重ねて出さない
   const paintSum = (nShown, nFold) => {
     sumArgs = [nShown, nFold];
     c.innerHTML = "";
     c.appendChild(document.createTextNode("判断 "+nShown+"件・タスク "+openTasks.filter(isMine).length+"件"+(repN ? "・レポート "+repN+"件" : "")+(nFold ? "（ほかは下に畳んであります。あとでまとめて）" : "")));
-    if(late){
-      const jb = $("button","act q"); jb.textContent = "▸ 期限切れのタスク "+late+"件（押すと移動）"+(late === 1 ? ": "+txt(lateTasks[0].properties["名前"]).replace(/[（(].*$/,"").slice(0,14) : "");
+    if(late && !hideJump){
+      const jb =$("button","act q"); jb.textContent = "▸ 期限切れのタスク "+late+"件（押すと移動）"+(late === 1 ? ": "+txt(lateTasks[0].properties["名前"]).replace(/[（(].*$/,"").slice(0,14) : "");
       jb.style.cssText = "display:block;width:100%;text-align:left;color:var(--urgent);border-color:var(--line);margin-top:8px;min-height:44px;font-size:13px";
       jb.onclick = () => { const el = document.querySelector(".card.late"); if(el) el.scrollIntoView({behavior:"smooth", block:"start"}); };
       c.appendChild(jb);
     }
   };
   paintSum(open.length, 0);
-  app.appendChild(c);   // 更新情報(uc)は最上段に置かず、いちばん下へ（load の最後で追加）
+  app.appendChild(c);
+  // いちばん上の「今日やる3件」枠（中身は判断カードが出そろったあとで paintToday が入れる）
+  const todayBox = $("div");
+  todayBox.style.cssText = "background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:0 0 14px";
+  app.appendChild(todayBox);
+  // 更新情報(uc)は最上段に置かず、いちばん下へ（load の最後で追加）
 
   // ---- 判断が必要なもの ----
   const s1 = $("section");
@@ -433,13 +459,15 @@ async function load(){
   // ボタンの意味の説明は1行の「？」に畳む（開くと見える）。1画面目にカードのボタンまで見せるため
   const hint = $("div","hint");
   hint.innerHTML = "<b>この案で進める</b>＝提案どおり実行／<b>あとで</b>＝明日の朝にまた出します／<b>見送る</b>＝取り下げ。"+
-    "直す内容を伝えたいときは「直す・調べる」を押してください（押すとすぐ保存され、カードに「取り消す」が出ます）。「見送る」「断る」も取り消せば戻ります。";
+    "ボタンの名前は内容で変わりますが、押すと「この案で進める」として保存されます。直す内容を伝えたいときは「コメントを書く」を開いてください。押すとすぐ保存され、カードに何が保存されたかと「取り消す」が出ます（「見送る」「断る」も取り消せば戻ります）。";
   hint.style.display = "none";
   const hintBtn = $("button","act q"); hintBtn.textContent = "ボタンの意味 ▼";
   hintBtn.style.cssText = "min-height:44px;font-size:13px;margin-left:auto;padding:4px 10px";
   hintBtn.onclick = () => { const o = hint.style.display === "none"; hint.style.display = o ? "block" : "none"; hintBtn.textContent = "ボタンの意味 "+(o ? "▲" : "▼"); };
   s1.querySelector(".head").appendChild(hintBtn);   // 見出しの右端に置いて縦を取らない
   s1.appendChild(hint);
+  // 説明は初回だけ自動で開く。2回目以降は「ボタンの意味 ▼」を押したときだけ
+  try{ if(!localStorage.getItem("hint_seen")){ hint.style.display = "block"; hintBtn.textContent = "ボタンの意味 ▲"; localStorage.setItem("hint_seen","1"); } }catch(e){}
   // 2つのまとまりに分ける: A＝いま動かす業務の提案（先に出す）／B＝書き方の好み（アンケート。畳んでおく）
   const isPref = (ti) => /^(会話の書き方|研究計画書の書き方|メールの書き方|書き方|長い文章|進め方)[:：]|^採番/.test(ti.replace(/^#\S+\s*/,""));
   // Hermes 自身の障害・内部の話（題名で判定。本文に「私の作業」があるものは、本文を読んだあとで移す）
@@ -447,7 +475,7 @@ async function load(){
   // A は種類別の3つの見出しに分ける（返事・予定／申請・応募／確認・そのほか）。各まとまりの中は期限順
   // 最上段: 今日・今週中（期限が7日以内、過ぎたものを含む）に答えるもの。種類別の見出しより先に出す
   const boxU = $("div");
-  const subU = $("div","sub"); subU.textContent = "今日・今週中に答えるもの（期限が7日以内）";
+  const subU = $("div","sub"); subU.textContent = "7日以内に答えるもの";
   subU.style.cssText = "font-size:14px;font-weight:700;margin:12px 0 8px;color:var(--urgent)";
   s1.append(subU, boxU);
   const boxA = $("div"), boxA2 = $("div"), boxA3 = $("div");
@@ -457,6 +485,7 @@ async function load(){
     s1.append(h, boxesA[i]); return h;
   });
   const placeA = (card) => { const k = card._key;
+    if(k && k.day > todayMs + 30*86400000) return boxF;
     return (k && k.day <= todayMs + 7*86400000) ? boxU : groupOf(card._gt || ""); };
   const groupOf = (ti) => /返事|出欠|日程|面談|依頼|担当|会議|招待|連絡/.test(ti) ? boxA
     : /申請|応募|助成|公募|抄録|倫理|提出|契約|執行|見積/.test(ti) ? boxA2 : boxA3;
@@ -481,6 +510,9 @@ async function load(){
   const boxI = $("div"), boxB = $("div");
   const foldI = makeFold("🔧 Hermes 側の件（あなたの判断は不要）", boxI);
   const foldB = makeFold("書き方の好み（アンケート）", boxB);
+  const boxF = $("div");   // 期限が30日より先のもの（今は畳んでおく。直前になったら上の見出しへ上がる）
+  const foldF = makeFold("📅 期限が先のもの（30日より先）", boxF);
+  s1.appendChild(foldF.wrap);
   s1.appendChild(foldI.wrap);   // 業務の提案(A)→私の内部→書き方の好み(B) の順
   s1.appendChild(foldB.wrap);
   const recount = () => {
@@ -489,8 +521,8 @@ async function load(){
     [boxU, ...boxesA].forEach((bx, i) => { const n = bx.querySelectorAll(":scope > .card").length; nA += n; subs[i].style.display = n ? "block" : "none"; });
     s1.querySelector(".c").textContent = nA+"件";
     emptyA.style.display = nA ? "none" : "block";
-    foldI.paint(); foldB.paint();
-    paintSum(nA, boxI.querySelectorAll(":scope > .card").length + boxB.querySelectorAll(":scope > .card").length);
+    foldI.paint(); foldB.paint(); foldF.paint();
+    paintSum(nA, [boxF, boxI, boxB].reduce((s, bx) => s + bx.querySelectorAll(":scope > .card").length, 0));
   };
   // 並び順: 期限のあるものを期限の早い順に先頭へ、期限なしはその後ろ（新しく入った順）
   const dueOf = r => txt(r.properties["期限"]) || "";
@@ -515,8 +547,58 @@ async function load(){
     return { day: day, t: day + (tm ? (+tm[1]*60 + +tm[2])*60000 : 0) };
   };
   const daysTxt = (k) => { const n = Math.round((k.day - todayMs)/86400000);
-    return n < 0 ? "過ぎています" : n === 0 ? "今日" : "あと"+n+"日"; };
+    return n < 0 ? (-n)+"日過ぎています" : n === 0 ? "今日" : "あと"+n+"日"; };
   const loads = [];
+  // ---- 1枚モード: カードを1件だけ大きく出し、前後に移れる。ボタンで判断すると自動で次へ ----
+  { const old = document.getElementById("focus"); if(old) old.remove(); document.body.style.overflow = ""; }
+  const focusOv = $("div"); focusOv.id = "focus"; focusOv.style.display = "none";
+  const fbar = $("div","fbar");
+  const fPrev = $("button","act"), fNext = $("button","act p"), fClose = $("button","act q"), fPos = $("span","fpos");
+  fPrev.textContent = "‹ 前"; fNext.textContent = "次 ›"; fClose.textContent = "一覧へ ✕";
+  const fmsg = $("div","fmsg"); fmsg.id = "fmsg";
+  const fwhy = $("div","fwhy"), fhold = $("div");
+  fbar.append(fPrev, fPos, fNext, fClose);
+  focusOv.append(fbar, fmsg, fwhy, fhold);
+  document.body.appendChild(focusOv);
+  let fcur = null, fph = null, fl = [], fIdx = -1;
+  const fList = () => [boxU, boxA, boxA2, boxA3, boxF].flatMap(bx => [...bx.querySelectorAll(":scope > .card")]);
+  const fRestore = () => {
+    if(fcur && fph && fph.parentNode){ fph.parentNode.insertBefore(fcur, fph); }
+    if(fph) fph.remove();
+    if(fcur) fcur.classList.remove("focused");
+    fcur = null; fph = null;
+  };
+  const fShut = () => {
+    const last = fcur; fRestore();
+    focusOv.style.display = "none"; document.body.style.overflow = ""; fmsg.textContent = "";
+    if(last) last.scrollIntoView({block:"center"});
+  };
+  const fOpen = (card) => {
+    if(fcur === card || !card.parentNode) return;
+    fRestore();
+    fl = fList(); fIdx = fl.indexOf(card);
+    fph = document.createElement("span"); card.parentNode.insertBefore(fph, card);
+    fcur = card; fhold.appendChild(card); card.classList.add("focused");
+    // 「なぜこれが出ているか」（期限・動く人）を必ず上に出す
+    const chips = [...card.firstChild.querySelectorAll(".chip")].map(x => x.textContent).join("　");
+    fwhy.textContent = "出ている理由: " + (chips || "期限なし") + (card._who ? "／" + card._who : "");
+    fPos.textContent = (fIdx + 1) + " / " + fl.length;
+    fmsg.textContent = "";
+    focusOv.style.display = "block"; focusOv.scrollTop = 0; document.body.style.overflow = "hidden";
+  };
+  // dir: 1=次（判断済みは飛ばす）／-1=前。行き止まりなら閉じる
+  const fStep = (dir) => {
+    let j = fIdx + dir;
+    while(j >= 0 && j < fl.length && dir > 0 && fl[j].classList.contains("gone")) j += dir;
+    if(j < 0 || j >= fl.length){ fShut(); if(dir > 0) setBusy("最後まで見ました"); return; }
+    fOpen(fl[j]);
+  };
+  fPrev.onclick = () => fStep(-1); fNext.onclick = () => fStep(1); fClose.onclick = fShut;
+  { const hd = s1.querySelector(".head");
+    const sb = $("button","act p"); sb.textContent = "▶ 1件ずつ"; sb.style.cssText = "margin-left:auto;min-height:44px;padding:4px 12px;font-size:14px";
+    hintBtn.style.marginLeft = "8px";
+    sb.onclick = () => { const f = fList().find(cd => !cd.classList.contains("gone")); if(f) fOpen(f); };
+    hd.insertBefore(sb, hintBtn); }
   for(const r of open){
     const card = $("div","card");
     const title = txt(r.properties["件名"]);
@@ -537,6 +619,7 @@ async function load(){
     card.appendChild(top);
     const t = $("div","title"); t.textContent = title.replace(/^#\S+\s*/,"").replace(/（[^）]*テスト[^）]*）/g,"");   // 技術の話（「テスト」状態など）は題名に出さない
     card.appendChild(t);
+    t.style.cursor = "pointer"; t.onclick = () => fOpen(card);   // 題名を押すと1枚モードで開く
     // 期限が4日以上先のピルは赤にしない（3日以内・過ぎたものだけ赤）
     const tone = (chip) => { if(chip && card._key && !chip.classList.contains("over") && Math.round((card._key.day - todayMs)/86400000) > 3) chip.classList.remove("u"); };
     tone(top.querySelector(".chip.u"));
@@ -566,7 +649,7 @@ async function load(){
     const cwrap = $("div","cwrap");
     const commentBox = document.createElement("textarea");
     commentBox.className = "cinput";
-    commentBox.placeholder = "コメント（「直して」は直す内容、「追加で調べて」は知りたい点を書いてください）";
+    commentBox.placeholder = "ここに書く（「直す内容を伝える」なら直したい点、「追加で調べてもらう」なら知りたい点）";
     // コメント欄は空から始める（Hermes の文を入れない。本人の下書きだけ復元）
     const dkey = "draft_"+r.id;
     { const dv = localStorage.getItem(dkey); if(dv) commentBox.value = dv; }
@@ -584,8 +667,14 @@ async function load(){
         if(cm) props["コメント"] = {"rich_text":[{"text":{"content":cm}}]};
         await api("/pages/"+r.id, {method:"PATCH", body:JSON.stringify({properties:props})});
         try{ localStorage.removeItem(dkey); }catch(e){}
-        undo.style.display = "inline-block";
+        undo.style.display = "block";
+        // 何が保存されたかを、取り消しボタンの真上（カード内）に出す
+        saved.textContent = "保存しました: 状態「"+val+"」"+(cm ? "／コメント「"+cm.slice(0,30)+(cm.length>30?"…":"")+"」" : "");
+        saved.style.display = "block";
+        card.classList.add("gone");   // 判断済みの印（薄く表示。1枚モードでは次へ飛ばす）
         setBusy("「"+val+"」にしました（まちがえたら「取り消す」で戻せます）");
+        // 1枚モードなら、取り消せる時間をとってから次のカードへ自動で進む
+        if(card.classList.contains("focused")) setTimeout(() => { if(card.classList.contains("focused")) fStep(1); }, 1500);
       }catch(e){ setBusy("失敗: "+e.message); }
     };
     const saveComment = async () => {
@@ -594,6 +683,8 @@ async function load(){
       try{ await api("/pages/"+r.id, {method:"PATCH", body:JSON.stringify({properties:{
         "コメント":{"rich_text": v ? [{"text":{"content":v}}] : []}}})});
         try{ localStorage.removeItem(dkey); }catch(e){}
+        saved.textContent = "保存しました: コメント「"+v.slice(0,30)+(v.length>30?"…":"")+"」（状態は変わりません）";
+        saved.style.display = v ? "block" : "none";
         setBusy("コメントを保存しました（状態は変わりません）"); }
       catch(e){ setBusy("失敗: "+e.message); }
     };
@@ -603,20 +694,22 @@ async function load(){
       b.textContent = label;
       b.onclick = () => {
         if(need && !commentBox.value.trim()){ setBusy("先にコメントを書いてください"); commentBox.focus(); return; }
-        if(label.indexOf("コメント")===0){ saveComment(); return; }
+        if(label === "コメントだけ残す"){ saveComment(); return; }
         b.disabled = true; setState(state || label.replace(/（.*）/,""));
       };
       return b;
     };
     const row = $("div","row mainrow");
-    const undo = $("button","act q");
-    undo.textContent = "取り消す（未確認に戻す）";
-    undo.style.display = "none";
+    const undo = $("button","act");
+    undo.textContent = "↩ 取り消す（未確認に戻す）";
+    undo.style.cssText = "display:none;width:100%;margin-top:6px";   // 押した直後に必ず見える位置（ボタン行のすぐ下）
+    const saved = $("div","stat");   // 「何が保存されたか」
+    saved.style.cssText = "display:none;margin-top:8px;font-size:13px";
     undo.onclick = async () => {
       undo.disabled = true; setBusy("戻しています…");
       try{
         await api("/pages/"+r.id, {method:"PATCH", body:JSON.stringify({properties:{"状態":{"select":{"name":"未確認"}}}})});
-        undo.style.display = "none"; setBusy("未確認に戻しました（判断の一覧に残っています）");
+        undo.style.display = "none"; saved.style.display = "none"; card.classList.remove("gone"); setBusy("未確認に戻しました（判断の一覧に残っています）");
       }catch(e){ setBusy("失敗: "+e.message); }
       undo.disabled = false;
     };
@@ -628,20 +721,22 @@ async function load(){
     else if(/内諾|メール/.test(title) && /依頼/.test(title)){ bGo.textContent = "依頼を出す"; bSkip.textContent = "出さない"; }   // こちらが送る側
     else if(/査読|講演|依頼/.test(title)){ bGo.textContent = "受ける"; bSkip.textContent = "断る"; }
     else if(/下書き|絞りました|議事録|確認/.test(title)) bGo.textContent = "内容OK";
+    if(/再認可/.test(title)) bSkip.style.display = "none";   // 見送るとカレンダーもメールも止まったままになる件は、見送りを出さない
     row.append(bGo, mk("あとで（明日の朝）","",false,"判断延期"), bSkip);
     const orow = $("div","row");
-    orow.append(mk("直して","",true), mk("追加で調べて","",true), mk("コメントを保存","q"));
+    // 保存される状態名（直して／追加で調べて）は従来どおり。ボタンの文字だけ分かりやすくした
+    orow.append(mk("直す内容を伝える","",true,"直して"), mk("追加で調べてもらう","",true,"追加で調べて"), mk("コメントだけ残す","q"));
     const more = $("div"); more.style.display = "none";
     const hint2 = $("div","meta");
-    hint2.textContent = "「直して」「追加で調べて」は、下の欄に内容を書いてから押します。";
+    hint2.textContent = "下の欄に書いてから押します。「コメントだけ残す」は状態を変えません。";
     more.append(hint2, cwrap, orow);
-    const mbtn = $("button","act q"); mbtn.textContent = "コメントを書く（直す・調べる）▼";
+    const mbtn = $("button","act q"); mbtn.textContent = "コメントを書く ▼";
     mbtn.style.width = "100%"; mbtn.style.marginTop = "8px";
     const paintMore = (o) => { more.style.display = o ? "block" : "none";
-      mbtn.textContent = "コメントを書く（直す・調べる）" + (o ? "▲" : "▼"); };
+      mbtn.textContent = "コメントを書く" + (o ? " ▲" : " ▼"); };
     mbtn.onclick = () => paintMore(more.style.display === "none");
     if(commentBox.value) paintMore(true);   // 書きかけがあれば開いておく
-    if(!isStyle){ card.appendChild(row); card.appendChild(undo); card.appendChild(mbtn); card.appendChild(more); }
+    if(!isStyle){ card.appendChild(row); card.appendChild(saved); card.appendChild(undo); card.appendChild(mbtn); card.appendChild(more); }
     // 好み調査のカードは、数字ボタンで答えられるようにする（押すとその番号をコメントに残して答え済みにする）
     if(isStyle){
       const nrow = $("div","row"); nrow.style.margin = "6px 0 0";
@@ -651,8 +746,7 @@ async function load(){
         b.onclick = async () => { commentBox.value = n; try{ localStorage.setItem(dkey, n); }catch(e){} await setState("対応済み"); };
         nrow.appendChild(b);
       });
-      nrow.appendChild(undo);
-      card.appendChild(nrow);
+      card.appendChild(nrow); card.appendChild(saved); card.appendChild(undo);
     }
     card._gt = title.replace(/^#\S+\s*/,"");
     (host === boxI || host === boxB ? host : placeA(card)).appendChild(card);
@@ -679,28 +773,53 @@ async function load(){
             items.push({ h: heading || /^#{1,6}\s/.test(t), t: t });
           }
         }
-        const short = s => { const m = s.match(/^.*?。/); let v = (m ? m[0] : s).trim().replace(/私（Hermes）/g,"Hermes").replace(/私([がのはを])/g,"Hermes$1"); return v.length > 60 ? v.slice(0,60)+"…" : v; };
-        let main = "", chg = "";
+        // 一文は1画面目に収まるよう、既定で40字（「変わること」は60字）で切る
+        let lastCut = false;
+        const short = (s, n = 40) => { const m = s.match(/^.*?。/); let v = (m ? m[0] : s).trim().replace(/私（Hermes）/g,"Hermes").replace(/私([がのはを])/g,"Hermes$1"); lastCut = v.length > n; return lastCut ? v.slice(0,n)+"…" : v; };
+        let main = "", chg = "", mainSrc = "", mainCut = false;   // どこから取った要点か／長くて切ったか（カードに小さく出す）
         for(const it of items){
           if(it.h) continue;
           let m;
-          if(!main && (m = it.t.match(/^要点[:：]\s*(.+)/)) && !isTitle(m[1])) main = short(m[1]);
-          if(!chg && (m = it.t.match(/^変わること[:：]\s*(.+)/))) chg = short(m[1]);
+          if(!main && (m = it.t.match(/^要点[:：]\s*(.+)/)) && !isTitle(m[1])){ main = short(m[1]); mainSrc = "要点"; mainCut = lastCut; }
+          if(!chg && (m = it.t.match(/^変わること[:：]\s*(.+)/))) chg = short(m[1], 60);
         }
         if(!main){   // 2. 「何の話か」の直後の1文
           const i = items.findIndex(it => /^何の話か/.test(it.t));
           if(i >= 0){
             const rest = items[i].t.replace(/^何の話か[:：]?\s*/, "");
-            if(rest && !isTitle(rest)) main = short(rest);
-            else if(items[i+1] && !items[i+1].h && !isTitle(items[i+1].t)) main = short(items[i+1].t);
+            if(rest && !isTitle(rest)){ main = short(rest); mainSrc = "本文"; mainCut = lastCut; }
+            else if(items[i+1] && !items[i+1].h && !isTitle(items[i+1].t)){ main = short(items[i+1].t); mainSrc = "本文"; mainCut = lastCut; }
           }
         }
         if(!main){   // 3. 見出し以外の最初の1文
           const it = items.find(x => !x.h && !isTitle(x.t) && !/^(要点|変わること|動く人|候補日|候補|選択肢|投稿先|誌名|下書き|送信|期限|通知|見分け方|前提|問い|違いはここ)[:：]/.test(x.t));
-          if(it) main = short(it.t);
+          if(it){ main = short(it.t); mainSrc = "本文"; mainCut = lastCut; }
         }
         gist.style.display = "block";
         gist.textContent = main || "本文を開いて確認してください";
+        // 要点が無い・長い・本文が空のときは、原因を小さく出す
+        const gnote = $("div","meta");
+        if(!items.length) gnote.textContent = "本文が空です";
+        else if(!main) gnote.textContent = "本文に「要点:」が見つかりません";
+        else if(mainSrc !== "要点") gnote.textContent = "本文に「要点:」が無いため、本文の先頭から取りました";
+        else if(mainCut) gnote.textContent = "要点が長いため40字で切っています（全文は「詳細を開く」）";
+        if(gnote.textContent) gist.after(gnote);
+        // 本文が空のカードには「Hermes に本文を作らせる」を出す（押すと依頼が Hermes に届く）
+        if(!items.length){
+          const nb = $("button","act"), rk = "bodyreq_"+r.id;
+          nb.style.cssText = "display:block;width:100%;margin:6px 0 8px"; nb.textContent = "Hermes に本文を作らせる";
+          try{ if(localStorage.getItem(rk)){ nb.textContent = "依頼済み ✓"; nb.disabled = true; } }catch(e){}
+          nb.onclick = async () => {
+            nb.disabled = true; setBusy("依頼を送っています…");
+            try{
+              await api("/blocks/"+MEMO_PAGE+"/children", {method:"PATCH", body:JSON.stringify({children:[{"object":"block","type":"paragraph","paragraph":{"rich_text":[
+                {"type":"text","text":{"content":stamp()+" 端末から: 【本文を作って】「"+title+"」のカードの本文（要点・進めると・動く人・期限）を作ってください。"}}]}}]})});
+              try{ localStorage.setItem(rk,"1"); }catch(e){}
+              nb.textContent = "依頼済み ✓"; setBusy("本文づくりの依頼を送りました");
+            }catch(e){ nb.disabled = false; setBusy("送れませんでした。もう一度押してください。"); }
+          };
+          (gnote.parentNode ? gnote : gist).after(nb);
+        }
         // 進めると何が起きるか（本文の「変わること:」行がある時だけ。推測では書かない）
         if(chg){ const sp = $("span","chg"); sp.innerHTML = "<b>進めると: </b>"+esc(chg); gist.appendChild(sp); }
         // 1画面目に出す中身（本文の「候補日:」「選択肢:」「投稿先:」「下書き:」「送信:」行。最大4行）
@@ -724,6 +843,7 @@ async function load(){
             const vv = v.trim().replace(/私（Hermes）/g, "Hermes").replace(/私/g, "Hermes");
             who.textContent = "動く人: " + (hz && yo ? (v.length > 12 ? vv.slice(0,40) : "私（Hermes）/あなた") : hz ? "私（Hermes）" : yo ? "あなた" : vv.slice(0,30));
             gist.appendChild(who);
+            card._who = who.textContent;   // 「今日やる3件」の1行に使う
             // Hermes だけが動く件は、「進める」＝「やってよい」の許可だと分かる名前にする
             if(hz && !yo && bGo.textContent === "この案で進める") bGo.textContent = "Hermes にやってもらう";
             else if(yo && !hz && bGo.textContent === "この案で進める") bGo.textContent = "自分でやる";   // あなたが動く件は「進める」ではなく「自分でやる」
@@ -763,13 +883,63 @@ async function load(){
     }));
   }
   recount();
+  // 同じ題名のカードが2枚以上あるときは、各カードに「同じ題名が◯枚あります」と小さく出す
+  { const all = [boxU, boxA, boxA2, boxA3, boxF, boxI, boxB].flatMap(bx => [...bx.querySelectorAll(":scope > .card")]);
+    const keyOf = cd => (cd._gt || "").replace(/【[^】]*】/g,"").replace(/\s/g,"");
+    const cnt = {}; for(const cd of all){ const k = keyOf(cd); if(k) cnt[k] = (cnt[k]||0) + 1; }
+    for(const cd of all){
+      const n = cnt[keyOf(cd)];
+      if(n > 1){ const dn = $("div","meta"); dn.textContent = "同じ題名が"+n+"枚あります"; dn.style.color = "var(--urgent)";
+        const tt = cd.querySelector(".title"); if(tt) tt.after(dn); }
+    }
+  }
+  // 今日やる3件: 期限が今日〜7日（過ぎたものを含む）の判断カードのうち、期限の早い順に3件。押すとそのカードへ移動
+  const paintToday = () => {
+    // 判断カード＋期限切れのタスクを、期限の早い順（期限切れが先頭）に。同じ件（題名の先頭10字が同じ）は1つだけ
+    const items = [boxU, boxA, boxA2, boxA3].flatMap(bx => [...bx.querySelectorAll(":scope > .card")])
+      .filter(cd => cd._key && cd._key.day <= todayMs + 7*86400000)
+      .map(cd => ({ k: cd._key, name: cd._gt || "", who: cd._who || "", go: () => cd.scrollIntoView({behavior:"smooth", block:"start"}) }));
+    for(const tk of lateTasks){
+      const k = parseDue(txt(tk.properties["期限"])); if(!k) continue;
+      items.push({ k: k, name: txt(tk.properties["名前"]), who: "タスク", go: () => {
+        const el = document.querySelector('[data-tid="'+tk.id+'"]') || document.querySelector(".card.late");
+        if(el) el.scrollIntoView({behavior:"smooth", block:"start"}); } });
+    }
+    items.sort((a, b) => a.k.t - b.k.t);
+    const seen = new Set(), cands = [];
+    for(const it of items){
+      const key = it.name.replace(/【[^】]*】/g,"").replace(/\s/g,"").slice(0,10);
+      if(seen.has(key)) continue; seen.add(key); cands.push(it); if(cands.length >= 3) break;
+    }
+    const jumpWas = hideJump; hideJump = cands.some(it => it.who === "タスク");
+    if(hideJump !== jumpWas) paintSum(sumArgs[0], sumArgs[1]);
+    todayBox.innerHTML = "";
+    const hasToday = cands.some(it => it.k.day <= todayMs);
+    const hd = $("div","sub"); hd.textContent = "期限が近い3件（期限切れ・今日が先頭）"; hd.style.cssText = "font-size:14px;font-weight:700;margin:0 0 6px";
+    todayBox.appendChild(hd);
+    if(!hasToday){ const e = $("div","empty"); e.textContent = "今日の締切はありません"; e.style.padding = "0 0 6px"; todayBox.appendChild(e); }
+    cands.forEach((it, i) => {
+      const b = $("button","act q");
+      b.style.cssText = "display:block;width:100%;text-align:left;margin:0 0 6px;font-size:14px;line-height:1.5";
+      // 判断カードは括弧から後ろを切る（途中で切れた括弧を出さない）。タスクは何をする件か分かるよう、括弧の中も残して短く
+      const nm = it.who === "タスク" ? it.name.trim().slice(0, 30) : it.name.replace(/[（(].*$/, "").trim().slice(0, 28);
+      // 動く人は短く（長い文をそのまま出さない）
+      const hz = /Hermes|私/.test(it.who), yo = /あなた/.test(it.who);
+      const ws = it.who === "タスク" ? "タスク" : hz && yo ? "Hermes＋あなた" : hz ? "Hermes" : yo ? "あなた" : "";
+      b.textContent = (i+1)+". "+daysTxt(it.k)+"｜"+nm+(ws ? "｜"+ws : "");
+      if(it.k.day < todayMs) b.style.color = "var(--urgent)";
+      b.onclick = it.go;
+      todayBox.appendChild(b);
+    });
+  };
+  paintToday();
   // 本文がそろったら、各まとまりの中を期限順に並べ直す（本文の「期限:」行 → 無ければ一覧の期限。期限なしは後ろ・新しい順）
   Promise.allSettled(loads).then(() => {
     // 本文の「期限:」が取れたので、7日以内のものは最上段へ、それ以外は種類別へ入れ直してから並べる
-    for(const card of [...boxU.children, ...boxA.children, ...boxA2.children, ...boxA3.children]){
+    for(const card of [...boxU.children, ...boxA.children, ...boxA2.children, ...boxA3.children, ...boxF.children]){
       if(card.classList && card.classList.contains("card")){ const dst = placeA(card); if(card.parentNode !== dst) dst.appendChild(card); }
     }
-    for(const box of [boxU, boxA, boxA2, boxA3, boxI, boxB]){
+    for(const box of [boxU, boxA, boxA2, boxA3, boxF, boxI, boxB]){
       const cards = [...box.querySelectorAll(":scope > .card")];
       cards.sort((a, b) => {
         const ka = a._key ? a._key.t : null, kb = b._key ? b._key.t : null;
@@ -781,6 +951,7 @@ async function load(){
       for(const c of cards) box.appendChild(c);
     }
     recount();
+    paintToday();   // 本文の期限・動く人が取れたので描き直す
   });
   // 残高（デポジット）をいちばん上に出す（Notion の「💴 残高・使用量」を読む）
   const s0 = $("section");
@@ -980,6 +1151,7 @@ async function load(){
   const normal = openTasks.filter(t => txt(t.properties["優先度"]) !== "低");
   const taskCard = (t) => {
     const card = $("div","card");
+    card.dataset.tid = t.id;
     const name = txt(t.properties["名前"]);
     let due = txt(t.properties["期限"]);
     const pri = txt(t.properties["優先度"]);
@@ -994,7 +1166,7 @@ async function load(){
       // 判断カードと同じ書式（M/D＋あと◯日）。過ぎていれば赤で強調
       const md = d10 ? d10.replace(/^\d{4}-0?(\d+)-0?(\d+)$/, "$1/$2") : "";
       const dk = d10 ? parseDue(d10) : null;
-      top.innerHTML = (late?'<span class="chip u over">期限 '+esc(md)+(past?'（過ぎています）':'（今日）')+'</span>'
+      top.innerHTML = (late?'<span class="chip u over">期限 '+esc(md)+(past?'（'+(dk?daysTxt(dk):'過ぎています')+'）':'（今日）')+'</span>'
                           : (due?'<span class="chip">期限 '+esc(md)+(dk?'（'+daysTxt(dk)+'）':'')+'</span>':""))+
                      (pri?'<span class="chip">優先度 '+esc(pri)+'</span>':"");
       const tl = card.querySelector(".title"); if(tl) tl.classList.toggle("overdue", !!late);
@@ -1091,7 +1263,7 @@ async function load(){
         setBusy("送れませんでした。もう一度押してください。");
       }
     };
-    row.appendChild(b);   // 主ボタンは「完了」「あとで（明日に）」「来週に」の3つ。詳細・調べてもらう・コメントは「その他」の中
+    row.appendChild(b);   // 主ボタンは「完了」「あとで（明日の朝）」「1週間後」の3つ。詳細・調べてもらう・コメントは「詳細・コメント」の中
     // 延期したとき、いつ戻ってくるかを小さく出す
     const dnote = $("div","meta"); dnote.style.display = "none";
     // リマインド（期限を明日／来週に）
@@ -1119,9 +1291,9 @@ async function load(){
       };
       return btn;
     };
-    row.appendChild(mkDue("あとで（明日に）", 1));
+    row.appendChild(mkDue("あとで（明日の朝）", 1));
     { const wd = new Date(); wd.setDate(wd.getDate()+7);
-      row.appendChild(mkDue("来週に（"+(wd.getMonth()+1)+"/"+wd.getDate()+" "+"日月火水木金土"[wd.getDay()]+"）", 7)); }
+      row.appendChild(mkDue("1週間後（"+(wd.getMonth()+1)+"/"+wd.getDate()+" "+"日月火水木金土"[wd.getDay()]+"）", 7)); }
     card.appendChild(row);
     card.appendChild(dnote);
     const tmore = $("div"); tmore.style.display = "none";
@@ -1129,7 +1301,7 @@ async function load(){
     tmore.append(mrow, qline);
     const tmbtn = $("button","act q"); tmbtn.style.width = "100%"; tmbtn.style.marginTop = "8px";
     const paintTMore = (o) => { tmore.style.display = o ? "block" : "none";
-      tmbtn.textContent = "詳細・コメント（その他）" + (o ? "▲" : "▼"); };
+      tmbtn.textContent = "詳細・コメント" + (o ? "▲" : "▼"); };
     tmbtn.onclick = () => paintTMore(tmore.style.display === "none");
     paintTMore(false);
     card.appendChild(tmbtn); card.appendChild(tmore);
