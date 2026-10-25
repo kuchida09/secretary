@@ -137,7 +137,7 @@
   .mainrow button.act{flex:1 1 30%;min-width:0}
   .mainrow button.act.p{flex:1 1 100%}
   /* 1枚モード（全画面。カードを1件だけ大きく出す） */
-  #focus{position:fixed;inset:0;z-index:40;background:var(--paper);overflow-y:auto;
+  #focus{position:fixed;top:0;left:0;right:0;bottom:0;z-index:40;-webkit-overflow-scrolling:touch;background:var(--paper);overflow-y:auto;
     padding:0 14px calc(28px + env(safe-area-inset-bottom));max-width:880px;margin:0 auto}
   #focus .fbar{position:sticky;top:0;z-index:2;background:var(--paper);display:flex;gap:8px;align-items:center;
     padding:10px 0;border-bottom:1px solid var(--line)}
@@ -284,6 +284,59 @@ function detailHtml(blocks){
   return html || blocksToHtml(blocks);
 }
 
+// 本文の選択肢（「1: …」「2: …」の段落、または番号つきリスト）を読み取る。2つ以上そろったときだけ返す
+function parseOptions(blocks){
+  const toN = c => /[１-９]/.test(c) ? c.charCodeAt(0) - 65248 : +c;
+  const all = []; let ord = 0;
+  for(const b of (blocks||[])){
+    const t = blockText(b).trim(); if(!t) continue;
+    if(b.type === "numbered_list_item"){ ord++; all.push({n: ord, text: t}); continue; }
+    ord = 0;
+    for(const ln of t.split(/\r?\n/)){
+      const m = ln.trim().match(/^([1-9１-９])[:：.．)）]\s*(.+)/);
+      if(m) all.push({n: toN(m[1]), text: m[2].trim()});
+    }
+  }
+  let seq = [];
+  for(const o of all){
+    if(o.n === seq.length + 1) seq.push(o);
+    else if(o.n === 1 && seq.length >= 2) break;
+    else if(o.n === 1) seq = [o];
+  }
+  return (seq.length >= 2 && seq.length <= 6) ? seq : [];
+}
+// レポートの「あなたに決めてほしいこと」の各質問の下に、選べるボタン（1〜4・はい・いいえ）を付ける。
+// 選ぶと下のコメント欄に「Q1: はい」の形で入り、「コメントを送る」で Hermes に届く
+function addReportChoices(root, cbox){
+  const hs = [...root.querySelectorAll("h2,h3,h4")].find(h => /決めてほしい|決めてください|選んでください|番号で/.test(h.textContent));
+  if(!hs) return;
+  const lis = []; let el = hs.nextElementSibling;
+  while(el && !/^H[2-4]$/.test(el.tagName)){
+    if(el.tagName === "OL" || el.tagName === "UL") lis.push(...el.querySelectorAll(":scope > li"));
+    el = el.nextElementSibling;
+  }
+  if(!lis.length) return;
+  const note = document.createElement("div"); note.className = "meta";
+  note.textContent = "各質問の下のボタンで選べます。選ぶと下のコメント欄に入るので、最後に「コメントを送る」を押してください。";
+  hs.after(note);
+  lis.forEach((li, i) => {
+    const row = document.createElement("div"); row.className = "row"; row.style.margin = "4px 0 12px";
+    const btns = [];
+    ["1","2","3","4","はい","いいえ"].forEach(ch => {
+      const b = document.createElement("button"); b.className = "act"; b.textContent = ch; b.style.minWidth = "48px";
+      b.onclick = () => {
+        const key = "Q"+(i+1)+":";
+        const lines = cbox.value.split("\n").filter(l => !l.startsWith(key));
+        lines.push(key+" "+ch);
+        cbox.value = lines.join("\n").trim();
+        cbox.dispatchEvent(new Event("input"));
+        btns.forEach(x => x.classList.toggle("done", x === b));
+      };
+      btns.push(b); row.appendChild(b);
+    });
+    li.appendChild(row);
+  });
+}
 // レポート本文から、運用の内輪話の節（見出し〜次の同格の見出しまで）を取り除く
 function stripInternal(md){
   const bad = /なぜ3回|いまの運用|現在の運用|自動処理|改訂メモ|未処理は|確定|次の\d+問/;
@@ -597,7 +650,13 @@ async function load(){
   { const hd = s1.querySelector(".head");
     const sb = $("button","act p"); sb.textContent = "▶ 1件ずつ"; sb.style.cssText = "margin-left:auto;min-height:44px;padding:4px 12px;font-size:14px";
     hintBtn.style.marginLeft = "8px";
-    sb.onclick = () => { const f = fList().find(cd => !cd.classList.contains("gone")); if(f) fOpen(f); };
+    sb.onclick = () => {
+      try{
+        const f = fList().find(cd => !cd.classList.contains("gone"));
+        if(!f){ setBusy("1件ずつ見る判断カードがありません"); return; }
+        fOpen(f);
+      }catch(e){ setBusy("1枚モードを開けませんでした: "+e.message); }   // 失敗を黙らせず画面に出す
+    };
     hd.insertBefore(sb, hintBtn); }
   for(const r of open){
     const card = $("div","card");
@@ -619,7 +678,7 @@ async function load(){
     card.appendChild(top);
     const t = $("div","title"); t.textContent = title.replace(/^#\S+\s*/,"").replace(/（[^）]*テスト[^）]*）/g,"");   // 技術の話（「テスト」状態など）は題名に出さない
     card.appendChild(t);
-    t.style.cursor = "pointer"; t.onclick = () => fOpen(card);   // 題名を押すと1枚モードで開く
+    t.style.cursor = "pointer"; t.onclick = () => { try{ fOpen(card); }catch(e){ setBusy("1枚モードを開けませんでした: "+e.message); } };   // 題名を押すと1枚モードで開く
     // 期限が4日以上先のピルは赤にしない（3日以内・過ぎたものだけ赤）
     const tone = (chip) => { if(chip && card._key && !chip.classList.contains("over") && Math.round((card._key.day - todayMs)/86400000) > 3) chip.classList.remove("u"); };
     tone(top.querySelector(".chip.u"));
@@ -730,10 +789,10 @@ async function load(){
     const hint2 = $("div","meta");
     hint2.textContent = "下の欄に書いてから押します。「コメントだけ残す」は状態を変えません。";
     more.append(hint2, cwrap, orow);
-    const mbtn = $("button","act q"); mbtn.textContent = "コメントを書く ▼";
+    const mbtn = $("button","act q"); mbtn.textContent = "✎ コメントを書く ▼（ここを押すと書けます）";
     mbtn.style.width = "100%"; mbtn.style.marginTop = "8px";
     const paintMore = (o) => { more.style.display = o ? "block" : "none";
-      mbtn.textContent = "コメントを書く" + (o ? " ▲" : " ▼"); };
+      mbtn.textContent = o ? "✎ コメントを書く ▲（閉じる）" : "✎ コメントを書く ▼（ここを押すと書けます）"; };
     mbtn.onclick = () => paintMore(more.style.display === "none");
     if(commentBox.value) paintMore(true);   // 書きかけがあれば開いておく
     if(!isStyle){ card.appendChild(row); card.appendChild(saved); card.appendChild(undo); card.appendChild(mbtn); card.appendChild(more); }
@@ -873,6 +932,25 @@ async function load(){
               if(nd >= 0){ const fx = s => s.replace(/締切まで\d+日/g, "締切まで"+nd+"日"); gist.innerHTML = fx(gist.innerHTML); body.innerHTML = fx(body.innerHTML); } }
             break;
           }
+        }
+      }
+      // 本文が「選んでください／決めてください／番号で」と言っていて、「1: …」「2: …」の選択肢があれば、押して選べるボタンを出す
+      if(!isStyle && /選んで|決めて|番号で|どれ|どちら/.test(plain)){
+        const ob = parseOptions(b.results);
+        if(ob.length && row.parentNode === card){
+          const ow = $("div"); ow.style.margin = "8px 0";
+          const lb = $("div","meta"); lb.textContent = "選んでください（押すとその番号で決まります）"; ow.appendChild(lb);
+          ob.forEach(o => {
+            const ob1 = $("button","act p"); ob1.style.cssText = "display:block;width:100%;text-align:left;margin-top:6px";
+            ob1.textContent = o.n+"　"+o.text.slice(0,40);
+            ob1.onclick = () => {
+              const cur = commentBox.value.trim();
+              commentBox.value = "選んだ番号: "+o.n+"（"+o.text.slice(0,40)+"）"+(cur ? "／"+cur : "");
+              ob1.disabled = true; setState("この案で進める");
+            };
+            ow.appendChild(ob1);
+          });
+          card.insertBefore(ow, row);
         }
       }
       // 本文が「私の作業」の話なら、判断欄ではなく「私の内部」へ移す
@@ -1027,6 +1105,20 @@ async function load(){
         // 回答欄には機械が書いた文を入れない（本人の下書きだけ復元する）
         ta.value = localStorage.getItem(dkey) || "";
         ta.oninput = () => { try{ localStorage.setItem(dkey, ta.value); }catch(e){} };
+        // 詳細に「1: …」「2: …」の選択肢があれば、押して選べるようにする（選ぶと回答欄に入る）
+        { const dl = (det || "").split(/\r?\n/);
+          const ob = parseOptions(dl.map(x => ({type:"paragraph", paragraph:{rich_text:[{plain_text:x.replace(/^\s*[-*]\s*/,"")}]}})));
+          if(ob.length){
+            const orow2 = $("div"); orow2.style.margin = "8px 0";
+            const lab2 = $("div","meta"); lab2.textContent = "選んでください（押すと回答欄に入ります。そのまま「回答を保存」で送れます）"; orow2.appendChild(lab2);
+            ob.forEach(o => {
+              const b = $("button","act"); b.style.cssText = "display:block;width:100%;text-align:left;margin-top:6px";
+              b.textContent = o.n+"　"+o.text.slice(0,40);
+              b.onclick = () => { ta.value = o.n+": "+o.text; try{ localStorage.setItem(dkey, ta.value); }catch(e){} };
+              orow2.appendChild(b);
+            });
+            card.appendChild(orow2);
+          } }
         card.appendChild(ta);
         const row = $("div","row");
         const save = $("button","sign"); save.textContent = "回答を保存";
@@ -1127,6 +1219,7 @@ async function load(){
               const bb = await api("/blocks/"+r.id+"/children?page_size=100");
               body.innerHTML = detailHtml(bb.results);
             }
+            addReportChoices(body, cbox);   // 「決めてほしいこと」に、選べるボタンを付ける
           }catch(e){ body.innerHTML = "（本文を読み込めませんでした）"; }
         };
         body.textContent = "読み込み中…";
@@ -1307,7 +1400,7 @@ async function load(){
     tmore.append(mrow, qline);
     const tmbtn = $("button","act q"); tmbtn.style.width = "100%"; tmbtn.style.marginTop = "8px";
     const paintTMore = (o) => { tmore.style.display = o ? "block" : "none";
-      tmbtn.textContent = "詳細・コメント" + (o ? "▲" : "▼"); };
+      tmbtn.textContent = o ? "✎ 詳細・コメント ▲（閉じる）" : "✎ 詳細・コメント ▼（コメントも書けます）"; };
     tmbtn.onclick = () => paintTMore(tmore.style.display === "none");
     paintTMore(false);
     card.appendChild(tmbtn); card.appendChild(tmore);
@@ -1402,7 +1495,7 @@ async function load(){
       try{
         const keys = [];
         for(let i=0;i<localStorage.length;i++){ const k = localStorage.key(i);
-          if(k && k.startsWith("draft_") && !k.startsWith("draft_q_") && k !== "draft_memo") keys.push(k); }
+          if(k && k.startsWith("draft_") && !k.startsWith("draft_q_") && !k.startsWith("draft_rep_") && k !== "draft_memo") keys.push(k); }
         for(const k of keys){
           const v = (localStorage.getItem(k) || "").trim();
           const id = k.slice(6);
