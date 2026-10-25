@@ -228,6 +228,18 @@ def check_published():
         add("OK", "公開版と手元が同じ", f"{len(local)} バイト")
 
 
+def check_card_content():
+    """アプリに出るカードの中身が、書き方の規則を満たしているか（card_check.py）。"""
+    r = subprocess.run([sys.executable, "card_check.py", "--quiet"], cwd=HOME,
+                       capture_output=True, text=True)
+    out = (r.stdout or "").strip()
+    if r.returncode == 0 and not out:
+        add("OK", "カードの中身が規則を満たす", "未確認・判断延期のカードはすべて合格")
+    else:
+        first = "／".join(out.splitlines()[1:4])[:180]
+        add("注意", "カードの中身に不足", first or "card_check.py の出力を確認")
+
+
 def main():
     os.chdir(HOME)
     check_python_syntax()
@@ -240,6 +252,7 @@ def main():
     check_notion()
     check_report_summary()
     check_published()
+    check_card_content()
 
     ng = [r for r in results if r[0] == "NG"]
     for state, name, detail in results:

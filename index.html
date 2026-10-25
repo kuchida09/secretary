@@ -631,7 +631,7 @@ async function load(){
     gist.style.display = "none";
     card.appendChild(gist);
     // 好み調査のカードは例文を最初から開いて見せる（詳細トグルに隠すと違いが見えないため）
-    const isStyle = title.indexOf("書き方の好み") >= 0;
+    const isStyle = isPref(title);   // 好み調査のカードは「会話の書き方：」「書き方：」など題名が変わっても拾う（2026-10-25 修正。以前は「書き方の好み」の文字だけを見ていて、作り直したカードで数字ボタンとコメント欄が消えていた）
     const body = $("div","body"); body.innerHTML = '<div class="sub">読み込み中…</div>';
     let dbtn = null;
     if(isStyle){
@@ -743,10 +743,16 @@ async function load(){
       const lab = $("span","sub"); lab.textContent = "番号をタップ:"; nrow.appendChild(lab);
       ["1","2","3"].forEach(n => {
         const b = $("button","act p"); b.textContent = n; b.style.minWidth = "52px"; b.style.fontWeight = "700";
-        b.onclick = async () => { commentBox.value = n; try{ localStorage.setItem(dkey, n); }catch(e){} await setState("対応済み"); };
+        b.onclick = async () => { const cur = commentBox.value.trim(); commentBox.value = cur ? (n + " " + cur) : n; try{ localStorage.setItem(dkey, commentBox.value); }catch(e){} await setState("対応済み"); };
         nrow.appendChild(b);
       });
-      card.appendChild(nrow); card.appendChild(saved); card.appendChild(undo);
+      card.appendChild(nrow);
+      // 理由を書く欄（任意）。番号ボタンと一緒に保存される（2026-10-25 本人の指摘で追加）
+      commentBox.placeholder = "理由を書く（任意）。番号ボタンを押すと、この内容も一緒に保存されます。";
+      cwrap.style.display = "block";
+      card.appendChild(cwrap);
+      card.appendChild(mk("コメントだけ残す","q"));
+      card.appendChild(saved); card.appendChild(undo);
     }
     card._gt = title.replace(/^#\S+\s*/,"");
     (host === boxI || host === boxB ? host : placeA(card)).appendChild(card);
