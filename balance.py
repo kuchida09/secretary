@@ -20,6 +20,31 @@ import urllib.request
 HERE = pathlib.Path(__file__).resolve().parent
 STATE = HERE / "balance_state.json"
 CONF = HERE / "balance_config.json"
+# 鍵の置き場（環境変数が無いときはここから読む）。画面にも記録にも出さない。
+KEY_FILES = [
+    "/home/kuchida09/hermes-data/.hermes/openrouter_key",
+    "/workspace/.hermes/openrouter_key",
+    str(pathlib.Path.home() / ".hermes" / "openrouter_key"),
+]
+
+
+def load_openrouter_key():
+    """OpenRouter の鍵を返す。環境変数 → 鍵ファイルの順。無ければ空文字。"""
+    v = os.environ.get("OPENROUTER_API_KEY", "").strip()
+    if v:
+        return v
+    override = os.environ.get("OPENROUTER_KEY_FILE", "").strip()
+    files = [override] if override else KEY_FILES
+    for p in files:
+        try:
+            t = pathlib.Path(p).read_text(encoding="utf-8").strip()
+            if t:
+                return t
+        except Exception:
+            continue
+    return ""
+
+
 NOTION_PAGE_TITLE = "💴 残高・使用量"
 NOTION_PARENT = "3fce71bc-ecb6-8015-a491-ce32d4832219"   # 秘書ページ
 DEFAULT_THRESHOLD = 1000        # 円。これを下回ったら知らせる
@@ -83,9 +108,10 @@ def main():
     threshold = float(conf.get("threshold_jpy", DEFAULT_THRESHOLD))
     rate = float(conf.get("usd_jpy", 158.44))
 
-    key = os.environ.get("OPENROUTER_API_KEY", "")
+    key = load_openrouter_key()
     if not key:
-        print("OPENROUTER_API_KEY が未設定です（残高を取得できません）", file=sys.stderr)
+        print("OpenRouter の鍵が見つかりません（残高を取得できません）。"
+              "secretary/set_openrouter_key.sh を実行してください。", file=sys.stderr)
         return 2
 
     try:

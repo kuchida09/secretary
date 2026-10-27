@@ -169,8 +169,9 @@ const QA_DS = "8d58d65b-8d15-4012-866a-772ee3942500";
 const NV = "2025-09-03";
 // アプリを直したら APP_VER を上げ、APP_NOTES に「何が変わったか」を書く。
 // 次に開いたときだけ、上に「更新情報」として出る（「確認した」で消える）。
-const APP_VER = "2026-10-27.1";
+const APP_VER = "2026-10-27.2";
 const APP_NOTES = [
+  "タスクの「Hermes から」の案内（やり方・回答）が、あなたがコメントを保存しても消えなくなりました。案内は「詳細・コメント」を開くと出ます。",
   "いちばん下に「過去（直近のぶん）」を足しました。終わったタスク・対応済みの提案・確認済みのレポートを、あとからアプリの中で見返せます（押すと中身が出ます）。",
   "判断カードの「コメントを書く」を開いても入力欄が出なかった不具合を直しました（7日以内のカードなど）。開くとすぐ書けます。",
   "いちばん上に「期限が近い3件」。押すとそのカードへ移動します。「▶ 1件ずつ」で、1枚ずつ大きく見て判断できます（判断すると次へ進みます）。",
@@ -231,6 +232,16 @@ const txt = v => { if(!v) return ""; const t=v.type;
   if(t==="date") return (v.date||{}).start||"";
   if(t==="checkbox") return v.checkbox;
   return ""; };
+
+// メモ欄には「本人のコメント」と「Hermes が書いた案内（やり方・回答）」が同居する。
+// Hermes のぶんは ／【Hermes】 で始める約束にし、本人がコメントを保存しても案内が消えないようにする。
+const HKEY = "【Hermes】";
+const userMemo = m => { const s = m||""; const i = s.indexOf(HKEY);
+  return (i<0 ? s : s.slice(0,i)).replace(/[／\s]+$/,"").trim(); };
+const hermesMemo = m => { const s = m||""; const i = s.indexOf(HKEY);
+  return i<0 ? "" : s.slice(i+HKEY.length).trim(); };
+const composeMemo = (userText, base) => { const h = hermesMemo(base); const u = (userText||"").trim();
+  return h ? (u ? u + "／" + HKEY + h : HKEY + h) : u; };
 
 function blockToHtml(b){
   const k = b.type;
@@ -1317,7 +1328,14 @@ async function load(){
             const bb = await api("/blocks/"+t.id+"/children?page_size=50");
             let dhtml = detailHtml(bb.results);
             // メモを詳細の先頭にまとめる（カード上の二重表示をやめた分をここに集約）
-            if(memo) dhtml = '<div class="cnow">メモ: '+esc(memo)+'</div>' + dhtml;
+            // Hermes の案内（やり方・回答）と本人のコメントを分けて出す
+            if(memo){
+              const hm = hermesMemo(memo), um = userMemo(memo);
+              let head = "";
+              if(hm) head += '<div class="cnow">Hermes から: '+esc(hm)+'</div>';
+              if(um) head += '<div class="cnow">メモ: '+esc(um)+'</div>';
+              dhtml = head + dhtml;
+            }
             detail.innerHTML = dhtml || '<div class="sub">このタスクにはまだ詳細がありません（結果は Discord の該当メッセージにあります）。</div>';
           }catch(e){ detail.innerHTML = '<div class="sub">詳細を読み込めませんでした。</div>'; }
           detail.dataset.loaded="1"; db.disabled = false; setBusy("");
@@ -1334,11 +1352,12 @@ async function load(){
     b.onclick = async () => { b.disabled=true; setBusy("完了にしています…");
       // 書きかけのコメントが残っていたら、完了と一緒に保存する（保存できたかを画面に出す）
       const cv = (cta.value || "").trim();
-      const dirty = cv !== savedMemo;
+      const combined = composeMemo(cv, savedMemo);
+      const dirty = combined !== savedMemo;
       try{ const props = {"状態":{"select":{"name":"完了"}}, "完了日":{"date":{"start":today}} };
-        if(dirty) props["メモ"] = {"rich_text": cv ? [{"type":"text","text":{"content":cv}}] : []};
+        if(dirty) props["メモ"] = {"rich_text": combined ? [{"type":"text","text":{"content":combined}}] : []};
         await api("/pages/"+t.id,{method:"PATCH",body:JSON.stringify({properties: props})});
-        if(dirty){ savedMemo = cv; try{ localStorage.removeItem(tkey); }catch(e){}
+        if(dirty){ savedMemo = combined; try{ localStorage.removeItem(tkey); }catch(e){}
           cstat.textContent = (cv ? "書きかけのコメントも保存しました（"+stamp()+"）" : "コメントを空にしました（"+stamp()+"）");
           cstat.style.display="block"; }
         card.classList.add("gone");
@@ -1439,12 +1458,13 @@ async function load(){
     csave.onclick = async () => {
       csave.disabled = true; setBusy("保存しています…");
       const v = cta.value.trim();
+      const combined = composeMemo(v, savedMemo);   // Hermes の案内（やり方・回答）は残す
       try{ await api("/pages/"+t.id, {method:"PATCH", body:JSON.stringify({properties:{
-            "メモ":{"rich_text": v ? [{"type":"text","text":{"content":v}}] : []}}})});
+            "メモ":{"rich_text": combined ? [{"type":"text","text":{"content":combined}}] : []}}})});
         // 本当に保存されたかをページを読み直して確かめてから「保存済み」を出す
         const chk = await api("/pages/"+t.id);
-        if(txt(chk.properties["メモ"]) !== v) throw new Error("確認できませんでした");
-        savedMemo = v; try{ localStorage.removeItem(tkey); }catch(e){}
+        if(txt(chk.properties["メモ"]) !== combined) throw new Error("確認できませんでした");
+        savedMemo = combined; try{ localStorage.removeItem(tkey); }catch(e){}
         csave.textContent = "保存済み ✓";
         cstat.textContent = "コメントを保存しました（"+stamp()+"）"+(v ? "： "+v.slice(0,40)+(v.length>40?"…":"") : "（空にしました）");
         cstat.style.display="block";
