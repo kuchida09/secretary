@@ -106,7 +106,10 @@
   .hint{font-size:12.5px;color:var(--soft);line-height:1.65;margin:0 0 12px;
     background:var(--alt);border-radius:10px;padding:9px 11px}
   .hint b{color:var(--ink)}
-  .cnow{font-size:12.5px;color:var(--ink);background:var(--accent-soft);border-radius:8px;padding:7px 10px;margin-top:8px}
+  .cnow{font-size:12.5px;color:var(--ink);background:var(--accent-soft);border-radius:8px;padding:7px 10px;margin-top:8px;line-height:1.75;white-space:pre-wrap}
+  .cnow .clabel{font-weight:700;color:var(--accent);margin-bottom:2px}
+  .howto{font-size:13.5px;color:var(--ink);background:var(--accent-soft);border-radius:10px;padding:10px 12px;margin-top:8px;line-height:1.8;white-space:pre-wrap}
+  .howto .ht{font-weight:700;color:var(--accent);margin-bottom:4px;font-size:13.5px}
   .stat{font-size:11.5px;color:var(--done);background:var(--done-soft);border-radius:8px;padding:5px 9px;margin-top:6px;display:none}
   button.act.det{background:var(--accent-soft);border-color:transparent;color:var(--accent)}
   .meta{font-size:11.5px;color:var(--soft);margin-top:6px}
@@ -169,8 +172,10 @@ const QA_DS = "8d58d65b-8d15-4012-866a-772ee3942500";
 const NV = "2025-09-03";
 // アプリを直したら APP_VER を上げ、APP_NOTES に「何が変わったか」を書く。
 // 次に開いたときだけ、上に「更新情報」として出る（「確認した」で消える）。
-const APP_VER = "2026-10-27.2";
+const APP_VER = "2026-10-28.1";
 const APP_NOTES = [
+  "「やり方」が分かっているタスクに「📋 やり方を見る」ボタンを付けました。押すと手順だけが開きます（「詳細」を開かなくて済みます）。",
+  "「詳細を開く」の中身を見やすくしました。長い1行を「やり方:」「①…」などの区切りで改行して、1行ずつ読めるようにしました。",
   "タスクの「Hermes から」の案内（やり方・回答）が、あなたがコメントを保存しても消えなくなりました。案内は「詳細・コメント」を開くと出ます。",
   "いちばん下に「過去（直近のぶん）」を足しました。終わったタスク・対応済みの提案・確認済みのレポートを、あとからアプリの中で見返せます（押すと中身が出ます）。",
   "判断カードの「コメントを書く」を開いても入力欄が出なかった不具合を直しました（7日以内のカードなど）。開くとすぐ書けます。",
@@ -183,6 +188,23 @@ const app = document.getElementById("app");
 const foot = document.getElementById("foot");
 const $ = (t,c) => { const e=document.createElement(t); if(c) e.className=c; return e; };
 const esc = s => (s||"").replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+// 1本の長い文を、そのまま読める形にする（本人要望 2026-10-28: 改行が無くて見にくい）。
+// 「／」区切り・①②③…の番号・「やり方:」などの見出し語の前で改行を入れ、1行1項目にする。
+const NL = String.fromCharCode(10);
+function readableText(s){
+  let t = (s||"").replace(/\r/g,"");
+  t = t.replace(/[ \t]*／[ \t]*/g, NL);
+  t = t.replace(/[ \t]*([①-⑳])/g, NL+"$1");
+  t = t.replace(/[ \t]*(やり方|手順|ステップ|なぜ[^:：\n]{0,24}か|これは何か|答えるとどうなるか|注意|期限|前提|違いはここ|見分け方)[:：]/g, NL+"$1:");
+  t = t.replace(new RegExp(NL+"{2,}","g"), NL);
+  return t.replace(/^[ \t]+/,"").trim();
+}
+// メモ（Hermes の案内）から「やり方」の部分だけを取り出す。無ければ案内全体を返す
+function howtoText(memo){
+  const h = hermesMemo(memo); if(!h) return "";
+  const m = h.match(/(やり方|手順|ステップ)[^\n]{0,30}?[:：]?[\s\S]*$/);
+  return readableText(m ? m[0] : h);
+}
 // 本文の段落を、行頭の印で見た目を変える（すべての文字が同じ大きさで読みにくい、という指摘への対応）
 //   違いはここ: → 帯で強調／見分け方: → 小さめの補足／問い: → 見出し／前提: → 小さめの補足／1: 2: 3: → 選択肢の枠
 const styleBody = (root) => {
@@ -279,15 +301,16 @@ function blockText(b){
 function detailHtml(blocks){
   const out = [];
   for(const b of blocks){
-    if(b.type==="paragraph") out.push(blockText(b));
+    const rt = b => readableText(blockText(b));   // 長い1行を読みやすい行に割る
+    if(b.type==="paragraph") out.push(rt(b));
     else if(b.type==="heading_1") out.push("# "+blockText(b));
     else if(b.type==="heading_2") out.push("## "+blockText(b));
     else if(b.type==="heading_3") out.push("### "+blockText(b));
-    else if(b.type==="bulleted_list_item") out.push("- "+blockText(b));
-    else if(b.type==="numbered_list_item") out.push("1. "+blockText(b));
-    else if(b.type==="to_do") out.push((b.to_do.checked ? "- ✓ " : "- ") + blockText(b));
-    else if(b.type==="quote") out.push("> "+blockText(b));
-    else if(b.type==="callout") out.push("- "+blockText(b));
+    else if(b.type==="bulleted_list_item") out.push("- "+rt(b));
+    else if(b.type==="numbered_list_item") out.push("1. "+rt(b));
+    else if(b.type==="to_do") out.push((b.to_do.checked ? "- ✓ " : "- ") + rt(b));
+    else if(b.type==="quote") out.push("> "+rt(b));
+    else if(b.type==="callout") out.push("- "+rt(b));
     else if(b.type==="code") out.push("```\n"+blockText(b)+"\n```");
     else if(b.type==="divider") out.push("---");
     else if(b.type==="table_row") out.push("| "+b.table_row.cells.map(c=>c.map(x=>x.plain_text).join("")).join(" | ")+" |");
@@ -831,7 +854,7 @@ async function load(){
 
     card._created = r.created_time || "";
     loads.push(api("/blocks/"+r.id+"/children?page_size=50").then(b=>{
-      body.innerHTML = (memo2 ? '<div class="cnow">Hermes からの説明: '+esc(memo2)+'</div>' : "") + detailHtml(b.results);
+      body.innerHTML = (memo2 ? '<div class="cnow"><div class="clabel">Hermes からの説明</div>'+esc(readableText(memo2))+'</div>' : "") + detailHtml(b.results);
       styleBody(body);
       // 「何をどうする」の一文: 「要点:」「変わること:」の行を抜き出す（無ければ Hermes の説明、それも無ければ赤帯）
       const plain = (b.results||[]).map(x => ((x[x.type]||{}).rich_text||[]).map(r=>r.plain_text).join("")).join("\n");
@@ -976,7 +999,7 @@ async function load(){
         card.insertBefore(w, row.parentNode === card ? row : null);
       }
     }).catch(()=>{
-      body.innerHTML = memo2 ? '<div class="cnow">Hermes からの説明: '+esc(memo2)+'</div>' : "";
+      body.innerHTML = memo2 ? '<div class="cnow"><div class="clabel">Hermes からの説明</div>'+esc(readableText(memo2))+'</div>' : "";
     }));
   }
   recount();
@@ -1309,11 +1332,21 @@ async function load(){
     card.appendChild(top);
     const tt=$("div","title"); tt.textContent = name; card.appendChild(tt);
     paintTop();   // 題名ができたので、期限切れ・今日なら題名も赤にする
-    // やり方（手順）が入っているタスクは、開かなくても分かるよう印を出す（本人要望 2026-10-27）
-    if(/①|手順|ステップ|やり方/.test(memo)){
-      const g = $("div","chip d"); g.style.cssText = "display:inline-block;white-space:normal;margin:4px 0 0";
-      g.textContent = "📋 やり方あり（下の「詳細・コメント」を開くと出ます）";
-      card.appendChild(g);
+    // やり方（手順）が分かっているタスクは、押すと手順だけ開けるボタンを出す（本人要望 2026-10-28）
+    const howto = howtoText(memo);
+    if(howto){
+      const hb = $("button","act q det"); hb.textContent = "📋 やり方を見る ▼";
+      const hbox = $("div","howto"); hbox.style.display = "none";
+      hb.onclick = () => {
+        const open = hbox.style.display === "none";
+        if(open && !hbox.dataset.loaded){
+          hbox.innerHTML = '<div class="ht">やり方</div>' + esc(howto);
+          hbox.dataset.loaded = "1";
+        }
+        hbox.style.display = open ? "block" : "none";
+        hb.textContent = open ? "📋 やり方を見る ▲（閉じる）" : "📋 やり方を見る ▼";
+      };
+      card.append(hb, hbox);
     }
     // メモはカード上に単独で出さず、「詳細を開く」の中にまとめて表示する（二重表示を防ぐ）
 
@@ -1332,8 +1365,8 @@ async function load(){
             if(memo){
               const hm = hermesMemo(memo), um = userMemo(memo);
               let head = "";
-              if(hm) head += '<div class="cnow">Hermes から: '+esc(hm)+'</div>';
-              if(um) head += '<div class="cnow">メモ: '+esc(um)+'</div>';
+              if(hm) head += '<div class="cnow"><div class="clabel">Hermes から（やり方・回答）</div>'+esc(readableText(hm))+'</div>';
+              if(um) head += '<div class="cnow"><div class="clabel">あなたのメモ</div>'+esc(readableText(um))+'</div>';
               dhtml = head + dhtml;
             }
             detail.innerHTML = dhtml || '<div class="sub">このタスクにはまだ詳細がありません（結果は Discord の該当メッセージにあります）。</div>';

@@ -114,7 +114,17 @@ def main():
             items["tcmt:" + r["id"]] = (f"タスクへのコメント: 「{txt(p.get('名前'))[:50]}」"
                                         f"→ メモ: {memo[:160]}")
     try:
-        blocks = api(h, "GET", f"/blocks/{MEMO_PAGE}/children?page_size=100").get("results", [])
+        # 改善メモのページは 100 ブロックを超えて伸びる。100 件で打ち切ると、
+        # 古いメモ行の直後に置いた `対応:` の段落が見えず、同じ依頼を何度も報告してしまう。
+        blocks, cursor, guard = [], None, 0
+        while True:
+            _p = f"/blocks/{MEMO_PAGE}/children?page_size=100" + (f"&start_cursor={cursor}" if cursor else "")
+            _r = api(h, "GET", _p)
+            blocks += _r.get("results", [])
+            guard += 1
+            if not _r.get("has_more") or guard > 20:
+                break
+            cursor = _r.get("next_cursor")
         lines = ["".join(x.get("plain_text", "") for x in b["paragraph"]["rich_text"]).strip()
                  for b in blocks if b.get("type") == "paragraph"]
         for i, ln in enumerate(lines):

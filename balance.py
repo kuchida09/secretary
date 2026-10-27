@@ -45,6 +45,28 @@ def load_openrouter_key():
     return ""
 
 
+NOTION_KEY_FILES = [
+    "/home/kuchida09/hermes-data/.hermes/notion_key",
+    "/workspace/.hermes/notion_key",
+    str(pathlib.Path.home() / ".hermes" / "notion_key"),
+]
+
+
+def load_notion_key():
+    """Notion の鍵を返す。環境変数 → 鍵ファイルの順（スキル未読込の回でも動くように）。"""
+    v = os.environ.get("NOTION_API_KEY", "").strip()
+    if v:
+        return v
+    for p in NOTION_KEY_FILES:
+        try:
+            t = pathlib.Path(p).read_text(encoding="utf-8").strip()
+            if t:
+                return t
+        except Exception:
+            continue
+    return ""
+
+
 NOTION_PAGE_TITLE = "💴 残高・使用量"
 NOTION_PARENT = "3fce71bc-ecb6-8015-a491-ce32d4832219"   # 秘書ページ
 DEFAULT_THRESHOLD = 1000        # 円。これを下回ったら知らせる
@@ -144,17 +166,18 @@ def main():
         return 0
 
     # Notion のページを更新（アプリが読む）
-    nkey = os.environ.get("NOTION_API_KEY", "")
+    nkey = load_notion_key()
     if nkey:
         try:
             pid = find_or_create_page(nkey)
-            md = (f"# 残高・使用量（{time.strftime('%Y-%m-%d %H:%M')} UTC）\n\n"
+            _jst = time.strftime('%Y-%m-%d %H:%M', time.gmtime(time.time() + 9 * 3600))
+            md = (f"# 残高・使用量（{_jst} 日本時間）\n\n"
                   f"- 残高: ${balance_usd:,.2f}（約 **{balance_jpy:,.0f}円**）\n"
                   f"- 使った累計: ${usage:,.2f}（クレジット ${credits:,.2f}）\n"
                   + (f"- 前回から: {'+' if delta_usd>=0 else '-'}${abs(delta_usd):,.2f}\n" if delta_usd is not None else "")
                   + f"\n（1時間ごとに自動更新。しきい値 {threshold:,.0f}円）")
             notion(nkey, "PATCH", f"https://api.notion.com/v1/pages/{pid}/markdown",
-                   {"type": "replace_content", "replace_content": {"content": md}})
+                   {"type": "replace_content", "replace_content": {"new_str": md}})
         except Exception as exc:
             print(f"Notion の更新に失敗（{type(exc).__name__}）", file=sys.stderr)
 
