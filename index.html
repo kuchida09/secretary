@@ -59,6 +59,21 @@
   .body p.opt-cont:last-child{border-bottom-left-radius:8px;border-bottom-right-radius:8px}
   .body ul,.body ol{margin:4px 0;padding-left:1.2em}
   .body li{margin:2px 0}
+  /* 「詳細を開く」の中身: 本文より小さくしない（15px）。見出しは色つき太字＋上余白、箇条書きは「・」で字下げ、番号は強調、長いURLは折り返す */
+  .body{font-size:15px;line-height:1.85;overflow-wrap:anywhere;word-break:break-word}
+  .body h2,.body h3{font-size:16.5px;color:var(--accent);margin:24px 0 8px}
+  .body h4{font-size:15.5px;color:var(--accent);margin:18px 0 6px;font-weight:700}
+  .body p{margin:13px 0}
+  .body ul{list-style:none;padding-left:0;margin:8px 0}
+  .body ul li{position:relative;padding-left:1.4em;margin:5px 0}
+  .body ul li::before{content:"・";position:absolute;left:.15em;color:var(--accent);font-weight:700}
+  .body ol{padding-left:1.7em;margin:8px 0}
+  .body ol li{margin:5px 0;padding-left:.2em}
+  .body ol li::marker{font-weight:800;color:var(--accent)}
+  .body b,.body strong{font-weight:800}
+  .body a{color:var(--accent);overflow-wrap:anywhere;word-break:break-all}
+  .body pre{white-space:pre-wrap;overflow-wrap:anywhere}
+  .body code{overflow-wrap:anywhere}
   .body table{border-collapse:collapse;width:100%;font-size:12.5px;margin:8px 0;display:block;overflow-x:auto}
   .body th,.body td{border:1px solid var(--line);padding:4px 6px;text-align:left}
   .body th{background:var(--card)}
@@ -328,6 +343,14 @@ function detailHtml(blocks){
   return html || blocksToHtml(blocks);
 }
 
+// 「詳細を開く」は1つずつ開く。いま開いている詳細を覚えておき、別の詳細を開くときに閉じる
+let _openDetail = null;
+function openDetailExclusive(body, btn){
+  if(_openDetail && _openDetail.body !== body && _openDetail.body.isConnected){
+    _openDetail.body.style.display = "none"; _openDetail.btn.textContent = "詳細を開く";
+  }
+  _openDetail = { body: body, btn: btn };
+}
 // 本文の選択肢（「1: …」「2: …」の段落、または番号つきリスト）を読み取る。2つ以上そろったときだけ返す
 function parseOptions(blocks){
   const toN = c => /[１-９]/.test(c) ? c.charCodeAt(0) - 65248 : +c;
@@ -745,8 +768,10 @@ async function load(){
       body.style.display = "none";
       dbtn = $("button","act q det"); dbtn.textContent = "詳細を開く";
       dbtn.onclick = () => { const op = body.style.display !== "none";
+        if(!op) openDetailExclusive(body, dbtn);   // 1つずつ開く（ほかの詳細は閉じる）
+        else if(_openDetail && _openDetail.body === body) _openDetail = null;
         body.style.display = op ? "none" : "block"; dbtn.textContent = op ? "詳細を開く" : "詳細を閉じる"; };
-      card.appendChild(dbtn); card.appendChild(body);
+      // 詳細は、ボタン行のすぐ下・コメント欄より上に開く（下の card.appendChild の並びで置く）
     }
     // コメント欄 → ボタン
     const cwrap = $("div","cwrap");
@@ -786,10 +811,32 @@ async function load(){
       try{ await api("/pages/"+r.id, {method:"PATCH", body:JSON.stringify({properties:{
         "コメント":{"rich_text": v ? [{"text":{"content":v}}] : []}}})});
         try{ localStorage.removeItem(dkey); }catch(e){}
+        prevComment = v;
         saved.textContent = "保存しました: コメント「"+v.slice(0,30)+(v.length>30?"…":"")+"」（状態は変わりません）";
         saved.style.display = v ? "block" : "none";
         setBusy("コメントを保存しました（状態は変わりません）"); }
       catch(e){ setBusy("失敗: "+e.message); }
+    };
+    // 「直す内容を伝える」「追加で調べてもらう」は何度でも出せる。押すたびに回数と内容をコメントの末尾に足す（ボタンも状態も塞がない）
+    let prevComment = memo2;
+    const repeatable = async (val, b) => {
+      const lk = "rq_"+val+"_"+r.id; let n = 1;
+      try{ n = (+localStorage.getItem(lk) || 0) + 1; }catch(e){}
+      const d = new Date(), p2 = x => String(x).padStart(2,"0");
+      const line = "【"+(val === "直して" ? "直す" : "追加調査")+" "+n+"回目 "+(d.getMonth()+1)+"/"+d.getDate()+" "+p2(d.getHours())+":"+p2(d.getMinutes())+"】"+commentBox.value.trim();
+      const combined = ((prevComment ? prevComment+"\n" : "") + line).slice(-1900);
+      b.disabled = true; setBusy("依頼を送っています…");
+      try{
+        await api("/pages/"+r.id, {method:"PATCH", body:JSON.stringify({properties:{
+          "状態":{"select":{"name":val}}, "コメント":{"rich_text":[{"text":{"content":combined}}]}}})});
+        prevComment = combined;
+        try{ localStorage.setItem(lk, String(n)); localStorage.removeItem(dkey); }catch(e){}
+        commentBox.value = "";   // 次の依頼をすぐ書けるよう空にする（履歴はコメントに残っている）
+        saved.textContent = "保存しました: "+(val === "直して" ? "直す内容" : "追加調査")+"の依頼 "+n+"回目（履歴はコメントに残ります。続けて何度でも出せます）";
+        saved.style.display = "block"; undo.style.display = "block";
+        setBusy("「"+val+"」の依頼を出しました（"+n+"回目）。もう一度押せば追加の依頼を出せます");
+      }catch(e){ setBusy("失敗: "+e.message); }
+      b.disabled = false;
     };
     // label＝ボタンの文字、state＝Notion に書く状態名（省略時は label）
     const mk = (label, cls, need, state) => {
@@ -798,6 +845,7 @@ async function load(){
       b.onclick = () => {
         if(need && !commentBox.value.trim()){ setBusy("先にコメントを書いてください"); commentBox.focus(); return; }
         if(label === "コメントだけ残す"){ saveComment(); return; }
+        if(state === "追加で調べて" || state === "直して"){ repeatable(state, b); return; }
         b.disabled = true; setState(state || label.replace(/（.*）/,""));
       };
       return b;
@@ -839,7 +887,7 @@ async function load(){
       mbtn.textContent = o ? "✎ コメントを書く ▲（閉じる）" : "✎ コメントを書く ▼（ここを押すと書けます）"; };
     mbtn.onclick = () => paintMore(more.style.display === "none");
     if(commentBox.value) paintMore(true);   // 書きかけがあれば開いておく
-    if(!isStyle){ card.appendChild(row); card.appendChild(saved); card.appendChild(undo); card.appendChild(mbtn); card.appendChild(more); }
+    if(!isStyle){ card.appendChild(row); card.appendChild(saved); card.appendChild(undo); card.appendChild(dbtn); card.appendChild(body); card.appendChild(mbtn); card.appendChild(more); }
     // 好み調査のカードは、数字ボタンで答えられるようにする（押すとその番号をコメントに残して答え済みにする）
     if(isStyle){
       const nrow = $("div","row"); nrow.style.margin = "6px 0 0";
@@ -1160,6 +1208,7 @@ async function load(){
           styleBody(dbody);
           dbtn.onclick = () => {
             const open = dbody.style.display !== "none";
+            if(!open) openDetailExclusive(dbody, dbtn);
             dbody.style.display = open ? "none" : "block";
             dbtn.textContent = open ? "詳細を開く" : "詳細を閉じる";
           };
@@ -1391,6 +1440,7 @@ async function load(){
           }catch(e){ detail.innerHTML = '<div class="sub">詳細を読み込めませんでした。</div>'; }
           detail.dataset.loaded="1"; db.disabled = false; setBusy("");
         }
+        openDetailExclusive(detail, db);
         detail.style.display="block"; db.textContent="詳細を閉じる";
       } else { detail.style.display="none"; db.textContent="詳細を開く"; }
     };
