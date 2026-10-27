@@ -129,6 +129,13 @@
   .sumbar{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 14px;margin:0 0 10px;
     font-size:15px;font-weight:700;line-height:1.6}
   .sumbar .u{color:var(--urgent)}
+  /* 前払い残高（トップ画面・1行） */
+  .balbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--accent-soft);border:1px solid var(--line);
+    border-radius:12px;padding:7px 12px;margin:0 0 12px;font-size:12.5px;line-height:1.5}
+  .balbar .balkey{color:var(--soft)}
+  .balbar .balval{font-weight:700;font-size:15px;color:var(--ink)}
+  .balbar.low{background:var(--urgent-soft);border-color:var(--urgent)}
+  .balbar.low .balval{color:var(--urgent)}
   .upbar{margin:0 0 14px}
   .upbar>button.act{width:100%;text-align:left;font-size:13.5px}
   .upbar .upbody{display:none;margin-top:8px}
@@ -172,8 +179,9 @@ const QA_DS = "8d58d65b-8d15-4012-866a-772ee3942500";
 const NV = "2025-09-03";
 // アプリを直したら APP_VER を上げ、APP_NOTES に「何が変わったか」を書く。
 // 次に開いたときだけ、上に「更新情報」として出る（「確認した」で消える）。
-const APP_VER = "2026-10-28.1";
+const APP_VER = "2026-10-28.2";
 const APP_NOTES = [
+  "「AI利用の前払い残高」をトップ画面（日付のすぐ下）に出しました。1,000円を下回ると赤くなります。",
   "「やり方」が分かっているタスクに「📋 やり方を見る」ボタンを付けました。押すと手順だけが開きます（「詳細」を開かなくて済みます）。",
   "「詳細を開く」の中身を見やすくしました。長い1行を「やり方:」「①…」などの区切りで改行して、1行ずつ読めるようにしました。",
   "タスクの「Hermes から」の案内（やり方・回答）が、あなたがコメントを保存しても消えなくなりました。案内は「詳細・コメント」を開くと出ます。",
@@ -1073,21 +1081,31 @@ async function load(){
     recount();
     paintToday();   // 本文の期限・動く人が取れたので描き直す
   });
-  // 残高（デポジット）をいちばん上に出す（Notion の「💴 残高・使用量」を読む）
-  const s0 = $("section");
-  s0.innerHTML = '<div class="head"><h2>AI利用の前払い残高</h2></div><div class="meta">秘書がAIを使うために前払いしたお金の残りです（あなたの操作は不要。1,000円を切ったら Discord で知らせます）。</div><div class="meta" id="balance-line">読み込み中…</div>';
-  // 残高は月に数回しか見ないので、いちばん下（確認サインの前）に置く
+  // 前払い残高（デポジット）をトップ画面に1行で出す（Notion の「💴 残高・使用量」を読む）
+  //   本人の要望 2026-10-28: 残高をいちばん上で見えるようにする
+  const s0 = $("div","balbar");
+  s0.innerHTML = '<span class="balkey">AI利用の前払い残高</span><span class="balval" id="balance-line">読み込み中…</span>';
+  s0.title = "秘書がAIを使うために前払いしたお金の残りです（あなたの操作は不要。1,000円を切ったら Discord で知らせます）";
+  head.insertAdjacentElement("afterend", s0);   // 日付のすぐ下（トップ画面）に置く
   (async () => {
     try{
       const s = await api("/search", {method:"POST", body: JSON.stringify({query:"💴 残高・使用量", page_size:5})});
       const pg = (s.results||[]).find(r => r.object === "page");
-      if(!pg){ s0.classList.add("gone"); return; }
+      if(!pg){ s0.remove(); return; }
       const md = await api("/pages/" + pg.id.replace(/-/g,"") + "/markdown");
-      const lines = (md.markdown||"").split("\n").map(x=>x.replace(/[#*]/g,"").trim()).filter(x=>x && !x.startsWith("残高・使用量"));
-      const bl = lines.filter(x => !/自動更新|止まって/.test(x)).slice(0,2).join("　");   // 「止まっています」は対応を求めない限り出さない
-      if(!/\d/.test(bl)){ s0.dataset.hide = "1"; s0.remove(); return; }   // 数字が無い残高欄は見せる意味が無いので出さない
-      s0.querySelector("#balance-line").textContent = bl;
-    }catch(e){ s0.classList.add("gone"); }
+      // 「止まっています」「自動更新」の行は対応を求めない限り出さない
+      const lines = (md.markdown||"").split("\n").map(x=>x.replace(/[#*]/g,"").replace(/^-\s*/,"").trim())
+        .filter(x=>x && !x.startsWith("残高・使用量") && !/自動更新|止まって/.test(x));
+      const balLine = lines.find(x => /残高/.test(x)) || lines[0] || "";
+      if(!/\d/.test(balLine)){ s0.remove(); return; }   // 数字が無い残高欄は見せる意味が無いので出さない
+      // 残高だけを短く出す（円を主役に、ドルは括弧の補足）。使った累計などは長押しの説明に入れる
+      const yen = (balLine.match(/約\s*([\d,]+)\s*円/)||[])[1] || "";
+      const usd = (balLine.match(/\$([\d.,]+)/)||[])[1] || "";
+      s0.querySelector("#balance-line").textContent = (yen ? "約"+yen+"円" : balLine) + (usd ? "（$"+usd+"）" : "");
+      const use = lines.find(x => /使った|累計|クレジット/.test(x));
+      s0.title = "秘書がAIを使うために前払いしたお金の残りです（あなたの操作は不要。1,000円を切ったら Discord で知らせます）" + (use ? "　" + use : "");
+      if(yen && parseFloat(yen.replace(/,/g,"")) < 1000) s0.classList.add("low");   // しきい値を下回ったら赤く出す
+    }catch(e){ s0.remove(); }
   })();
   app.appendChild(s1);
 
@@ -1551,7 +1569,7 @@ async function load(){
   }
   app.appendChild(s2);
 
-  if(!s0.dataset.hide) app.appendChild(s0);   // 数字が取れなかった残高欄は出さない
+  // 残高（s0）は上部で日付のすぐ下に置き済み。読み込めなかったときは s0.remove() で消えている
 
   // ---- 確認サイン（読了ボタン） ----
   const s4 = $("section");
