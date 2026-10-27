@@ -1298,6 +1298,12 @@ async function load(){
     card.appendChild(top);
     const tt=$("div","title"); tt.textContent = name; card.appendChild(tt);
     paintTop();   // 題名ができたので、期限切れ・今日なら題名も赤にする
+    // やり方（手順）が入っているタスクは、開かなくても分かるよう印を出す（本人要望 2026-10-27）
+    if(/①|手順|ステップ|やり方/.test(memo)){
+      const g = $("div","chip d"); g.style.cssText = "display:inline-block;white-space:normal;margin:4px 0 0";
+      g.textContent = "📋 やり方あり（下の「詳細・コメント」を開くと出ます）";
+      card.appendChild(g);
+    }
     // メモはカード上に単独で出さず、「詳細を開く」の中にまとめて表示する（二重表示を防ぐ）
 
     // 詳細（タスクのページ本文をトグルで開く）
@@ -1422,14 +1428,14 @@ async function load(){
     // タスクへのコメント（メモ欄に保存する）
     const cwrap = $("div","cwrap");
     const cta = document.createElement("textarea"); cta.className = "cmt"; cta.rows = 2;
-    cta.placeholder = "このタスクへのコメント（メモ欄に保存します）";
+    cta.placeholder = "Hermes へのコメント（保存すると Hermes が読んで対応します）";
     const tkey = "tdraft_"+t.id;
     // コメント欄は空から始める（メモは「詳細を開く」の中に出す。本人の下書きだけ復元）
     cta.value = localStorage.getItem(tkey) || "";
     cta.oninput = () => { try{ localStorage.setItem(tkey, cta.value); }catch(e){} };
     cwrap.appendChild(cta);
     const crow = $("div","row");
-    const csave = $("button","act"); csave.textContent = "コメントを保存";
+    const csave = $("button","act"); csave.textContent = "コメントを保存（Hermes が読みます）";
     csave.onclick = async () => {
       csave.disabled = true; setBusy("保存しています…");
       const v = cta.value.trim();

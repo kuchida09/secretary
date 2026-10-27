@@ -107,6 +107,12 @@ def main():
         p = r["properties"]
         if txt(p.get("状態")) == "完了" and txt(p.get("完了日")) == today:
             items["task:" + r["id"]] = f"タスクの完了: 「{txt(p.get('名前'))[:50]}」"
+        # タスクのコメント（メモ欄）は Hermes が読んで対応する（本人指示 2026-10-27）。
+        # 対応したらメモに `対応: YYYY-MM-DD` を書く。書くまで何度でも拾う。
+        memo = txt(p.get("メモ")).strip()
+        if txt(p.get("状態")) != "完了" and memo and "対応:" not in memo:
+            items["tcmt:" + r["id"]] = (f"タスクへのコメント: 「{txt(p.get('名前'))[:50]}」"
+                                        f"→ メモ: {memo[:160]}")
     try:
         blocks = api(h, "GET", f"/blocks/{MEMO_PAGE}/children?page_size=100").get("results", [])
         lines = ["".join(x.get("plain_text", "") for x in b["paragraph"]["rich_text"]).strip()
