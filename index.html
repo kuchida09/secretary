@@ -194,8 +194,9 @@ const QA_DS = "8d58d65b-8d15-4012-866a-772ee3942500";
 const NV = "2025-09-03";
 // アプリを直したら APP_VER を上げ、APP_NOTES に「何が変わったか」を書く。
 // 次に開いたときだけ、上に「更新情報」として出る（「確認した」で消える）。
-const APP_VER = "2026-10-28.3";
+const APP_VER = "2026-10-28.4";
 const APP_NOTES = [
+  "トップ画面のいちばん上を「今日やること」にしました（日付と残高のすぐ下）。期限切れ・今日のものが先頭で、押すとその項目へ移動します。件数の帯はその下です。",
   "「調べてもらう」ボタンを、一度押したあとも何度でも押せるようにしました（押すと「もう一度調べてもらう」に変わります）。あわせて、前払い残高が出なかった不具合（別のページを読んでいた）を直しました。",
   "「AI利用の前払い残高」をトップ画面（日付のすぐ下）に出しました。1,000円を下回ると赤くなります。",
   "「やり方」が分かっているタスクに「📋 やり方を見る」ボタンを付けました。押すと手順だけが開きます（「詳細」を開かなくて済みます）。",
@@ -569,11 +570,13 @@ async function load(){
     }
   };
   paintSum(open.length, 0);
-  app.appendChild(c);
-  // いちばん上の「今日やる3件」枠（中身は判断カードが出そろったあとで paintToday が入れる）
+  // 1枚目のいちばん上に「今日やること」枠を置く（中身は判断カードが出そろったあとで paintToday が入れる）
+  //   本人の指示 2026-10-28（#79・案2）: 1枚目で最初に「今日、何をすればよいか」が見えるようにする。
+  //   残高（日付のすぐ下の1行）より下・件数の帯より上に置く。
   const todayBox = $("div");
   todayBox.style.cssText = "background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:0 0 14px";
   app.appendChild(todayBox);
+  app.appendChild(c);
   // 更新情報(uc)は最上段に置かず、いちばん下へ（load の最後で追加）
 
   // ---- 判断が必要なもの ----
@@ -1097,8 +1100,9 @@ async function load(){
     if(hideJump !== jumpWas) paintSum(sumArgs[0], sumArgs[1]);
     todayBox.innerHTML = "";
     const hasToday = cands.some(it => it.k.day <= todayMs);
-    const hd = $("div","sub"); hd.textContent = "期限が近い3件（期限切れ・今日が先頭）"; hd.style.cssText = "font-size:14px;font-weight:700;margin:0 0 6px";
-    todayBox.appendChild(hd);
+    const hd = $("div","sub"); hd.textContent = "今日やること（期限切れ・今日が先頭）"; hd.style.cssText = "font-size:15px;font-weight:700;margin:0 0 2px";
+    const hd2 = $("div"); hd2.textContent = "押すとその項目へ移動します"; hd2.style.cssText = "font-size:12px;color:var(--soft);margin:0 0 8px";
+    todayBox.appendChild(hd); todayBox.appendChild(hd2);
     if(!hasToday){ const e = $("div","empty"); e.textContent = "今日の締切はありません"; e.style.padding = "0 0 6px"; todayBox.appendChild(e); }
     cands.forEach((it, i) => {
       const b = $("button","act q");
