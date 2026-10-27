@@ -169,8 +169,9 @@ const QA_DS = "8d58d65b-8d15-4012-866a-772ee3942500";
 const NV = "2025-09-03";
 // アプリを直したら APP_VER を上げ、APP_NOTES に「何が変わったか」を書く。
 // 次に開いたときだけ、上に「更新情報」として出る（「確認した」で消える）。
-const APP_VER = "2026-10-25.2";
+const APP_VER = "2026-10-27.1";
 const APP_NOTES = [
+  "いちばん下に「過去（直近のぶん）」を足しました。終わったタスク・対応済みの提案・確認済みのレポートを、あとからアプリの中で見返せます（押すと中身が出ます）。",
   "判断カードの「コメントを書く」を開いても入力欄が出なかった不具合を直しました（7日以内のカードなど）。開くとすぐ書けます。",
   "いちばん上に「期限が近い3件」。押すとそのカードへ移動します。「▶ 1件ずつ」で、1枚ずつ大きく見て判断できます（判断すると次へ進みます）。",
   "判断カードは期限順・種類別に分け、30日より先のもの・Hermes 側の件・書き方のアンケートは畳みました。",
@@ -1056,6 +1057,9 @@ async function load(){
   })();
   app.appendChild(s1);
 
+  // 過去（終わったもの）の一覧。レポート・確認事項はこの下の s5 で読み込んだ分を足す
+  const pastItems = [];
+
   // ===== 📑 レポートと確認（意思決定の枠組み）=====
   const s5 = $("section");
   const h5 = $("div","head"); h5.innerHTML = "<h2>📑 レポートと確認</h2>";
@@ -1071,6 +1075,16 @@ async function load(){
     const allQa = (qa.results||[]);
     const qas = allQa.filter(r => { const s = txt(r.properties["状態"]); return s !== "取り下げ" && s !== "回答済み"; });
     const doneQa = allQa.length - qas.length;
+    // 過去（直近のぶん）用に、確認済みレポート・回答済みの確認事項を控えておく
+    for(const r of (rep.results||[])){
+      if(txt(r.properties["状態"]) === "確認済み")
+        pastItems.push({kind:"レポート", st:"確認済み", title:txt(r.properties["件名"]), id:r.id, note:"", when:(r.last_edited_time||"")});
+    }
+    for(const r of allQa){
+      const st = txt(r.properties["状態"]);
+      if(st === "回答済み" || st === "取り下げ")
+        pastItems.push({kind:"確認事項", st:st, title:txt(r.properties["質問"]), id:r.id, note:txt(r.properties["回答"]), when:(r.last_edited_time||"")});
+    }
     n5.textContent = "読むレポート "+reports.length+"件　答える確認事項 "+qas.length+"件";
     repN = reports.length; paintSum(sumArgs[0], sumArgs[1]);   // 先頭の要約にもレポート数を出す
     if(!reports.length && !qas.length){ s5.classList.add("gone"); }
@@ -1564,6 +1578,68 @@ async function load(){
   fbox.appendChild(frow);
   s3.appendChild(recent);
   app.appendChild(s3);
+
+  // ---- 過去（直近のぶん）: 終わったもの・見送ったものを見返す（2026-10-27 #77）----
+  {
+    const hist = pastItems.slice();
+    for(const r of review){
+      const st = txt(r.properties["状態"]);
+      if(st === "対応済み" || st === "見送る")
+        hist.push({kind:"提案", st:st, title:txt(r.properties["件名"]), id:r.id,
+                   note:txt(r.properties["Hermes の対応"]), when:(r.last_edited_time||r.created_time||"")});
+    }
+    for(const t of tasks){
+      if(txt(t.properties["状態"]) === "完了")
+        hist.push({kind:"タスク", st:"完了", title:txt(t.properties["名前"]), id:t.id,
+                   note:txt(t.properties["メモ"]), when:(txt(t.properties["完了日"])||t.last_edited_time||"")});
+    }
+    hist.sort((a,b) => String(b.when||"").localeCompare(String(a.when||"")));
+    if(hist.length){
+      const s6 = $("section");
+      s6.innerHTML = '<div class="head"><h2>過去（直近のぶん）</h2><span class="c">'+hist.length+'件</span></div>';
+      const sub6 = $("div","sub");
+      sub6.style.fontWeight = "400"; sub6.style.margin = "0 0 8px";
+      sub6.textContent = "終わったもの・見送ったもの。押すと中身が出ます（直近のぶんだけ）。";
+      s6.appendChild(sub6);
+      const list6 = $("div"); list6.style.display = "none";
+      const tg6 = $("button","act q"); tg6.style.width = "100%"; tg6.style.marginTop = "8px";
+      let o6 = false;
+      const paint6 = () => { list6.style.display = o6 ? "block" : "none";
+        tg6.textContent = hist.length+"件を"+(o6 ? "閉じる ▲" : "開く ▼"); };
+      paint6();
+      tg6.onclick = () => { o6 = !o6; paint6(); };
+      for(const h of hist){
+        const it = $("div","card");
+        it.style.padding = "8px 10px"; it.style.marginTop = "6px"; it.style.cursor = "pointer";
+        const top = $("div","row");
+        top.style.margin = "0"; top.style.alignItems = "center"; top.style.gap = "6px";
+        const chip = $("span","chip"); chip.textContent = h.kind+"・"+h.st;
+        const ti = $("div","title"); ti.style.fontSize = "14px"; ti.style.margin = "0"; ti.style.flex = "1";
+        ti.textContent = h.title;
+        top.append(chip, ti); it.appendChild(top);
+        const bd = $("div","body"); bd.style.display = "none"; bd.style.marginTop = "6px";
+        it.appendChild(bd);
+        it.onclick = async () => {
+          const opening = bd.style.display === "none";
+          if(opening && !bd.dataset.loaded){
+            bd.textContent = "読み込み中…";
+            try{
+              const bb = await api("/blocks/"+h.id+"/children?page_size=50");
+              let html = detailHtml(bb.results);
+              if(h.note) html = '<div class="cnow">対応: '+esc(h.note)+'</div>' + html;
+              bd.innerHTML = html || '<div class="sub">中身はありません（結果は Discord の該当メッセージにあります）。</div>';
+            }catch(e){ bd.innerHTML = '<div class="sub">中身を読み込めませんでした。</div>'; }
+            bd.dataset.loaded = "1";
+          }
+          bd.style.display = opening ? "block" : "none";
+        };
+        list6.appendChild(it);
+      }
+      s6.append(tg6, list6);
+      app.appendChild(s6);
+    }
+  }
+
   if(uc) app.appendChild(uc);   // 更新情報は最下部
 
   async function loadMemo(){

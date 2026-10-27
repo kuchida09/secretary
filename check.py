@@ -7,6 +7,7 @@
 考え方（ハーネス設計の「柵」）: 書いたものを、機械的に検証する。
 判定は誰が実行しても同じ結果になるように、スクリプトだけで行う（AI を使わない）。
 """
+import csv
 import json
 import os
 import pathlib
@@ -240,6 +241,47 @@ def check_card_content():
         add("注意", "カードの中身に不足", first or "card_check.py の出力を確認")
 
 
+def check_skills_exist():
+    """定期ジョブが使うスキルが実在するか（#76・2026-10-27 承認）。
+
+    スキルが黙って消えると、ジョブは警告を出しながら読み飛ばし続ける。
+    ここに並べた名前が1つでも見つからなければ 注意 を出す（NG にはしない＝止めない）。
+    2026-10-24 に research-kb、2026-10-26 に secretary-notion が、
+    端末からスキル置き場へ書いた操作で消えた（curator の台帳で確認）。
+    """
+    roots = [pathlib.Path("/root/.hermes/skills"), pathlib.Path.home() / ".hermes" / "skills"]
+    required = ["notion", "google-workspace", "gmail-draft", "obsidian", "xlsx", "pdf", "docx",
+                "arxiv", "journal-scope-profiling", "hermes-agent", "secretary-notion"]
+    root = next((r for r in roots if r.is_dir()), None)
+    if root is None:
+        add("注意", "定期ジョブが使うスキルが実在する", "スキル置き場が見つからない")
+        return
+    have = {d.name for d in root.glob("*/*") if d.is_dir()}
+    missing = [s for s in required if s not in have]
+    add("注意" if missing else "OK", "定期ジョブが使うスキルが実在する",
+        ("見つからない: " + "、".join(missing)) if missing else f"{len(required)} 件すべて実在")
+
+
+def check_index_anomalies():
+    """論文索引の欠け（PMID・DOI・要約）を数える（#74・2026-10-27）。
+
+    実物は knowledge/literature/daily-feed/index.csv（旧い literature/index.csv は無い）。
+    空欄の件数だけを出し、値そのものは出さない。PMID の空が 0 でなければ 注意。
+    """
+    p = pathlib.Path("/workspace/research/80_AI作業場/knowledge/literature/daily-feed/index.csv")
+    if not p.exists():
+        add("注意", "論文索引の欠け", "索引ファイルが見つからない")
+        return
+    with p.open(encoding="utf-8-sig", newline="") as f:
+        rows = list(csv.DictReader(f))
+    n = len(rows)
+    e_pmid = sum(1 for r in rows if not (r.get("pmid") or "").strip())
+    e_doi = sum(1 for r in rows if not (r.get("doi") or "").strip())
+    e_abs = sum(1 for r in rows if not (r.get("abstract") or "").strip())
+    add("注意" if e_pmid else "OK", "論文索引の欠け",
+        f"{n}行 | PMID空 {e_pmid} / DOI空 {e_doi} / 要約空 {e_abs}")
+
+
 def main():
     os.chdir(HOME)
     check_python_syntax()
@@ -253,6 +295,8 @@ def main():
     check_report_summary()
     check_published()
     check_card_content()
+    check_skills_exist()
+    check_index_anomalies()
 
     ng = [r for r in results if r[0] == "NG"]
     for state, name, detail in results:
