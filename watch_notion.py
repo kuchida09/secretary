@@ -205,7 +205,7 @@ def main():
         except Exception:
             pass
 
-    print("✅ 受け取りました（" + "・".join(kinds) + "）。処理は担当の係が行います。")
+    print("▶ 受け取りました（" + "・".join(kinds) + "）。これから処理します。結果はこのあと、ここにまとめて出します。")
     if DRY:
         return
     try:
