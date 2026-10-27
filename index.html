@@ -194,8 +194,9 @@ const QA_DS = "8d58d65b-8d15-4012-866a-772ee3942500";
 const NV = "2025-09-03";
 // アプリを直したら APP_VER を上げ、APP_NOTES に「何が変わったか」を書く。
 // 次に開いたときだけ、上に「更新情報」として出る（「確認した」で消える）。
-const APP_VER = "2026-10-28.2";
+const APP_VER = "2026-10-28.3";
 const APP_NOTES = [
+  "「調べてもらう」ボタンを、一度押したあとも何度でも押せるようにしました（押すと「もう一度調べてもらう」に変わります）。あわせて、前払い残高が出なかった不具合（別のページを読んでいた）を直しました。",
   "「AI利用の前払い残高」をトップ画面（日付のすぐ下）に出しました。1,000円を下回ると赤くなります。",
   "「やり方」が分かっているタスクに「📋 やり方を見る」ボタンを付けました。押すと手順だけが開きます（「詳細」を開かなくて済みます）。",
   "「詳細を開く」の中身を見やすくしました。長い1行を「やり方:」「①…」などの区切りで改行して、1行ずつ読めるようにしました。",
@@ -343,6 +344,8 @@ function detailHtml(blocks){
   return html || blocksToHtml(blocks);
 }
 
+// 改善メモに送った直後の行（読み直しに出てくるまで「反映待ち」として見せる）
+let _sentMemo = [];
 // 「詳細を開く」は1つずつ開く。いま開いている詳細を覚えておき、別の詳細を開くときに閉じる
 let _openDetail = null;
 function openDetailExclusive(body, btn){
@@ -964,15 +967,18 @@ async function load(){
         // 本文が空のカードには「Hermes に本文を作らせる」を出す（押すと依頼が Hermes に届く）
         if(!items.length){
           const nb = $("button","act"), rk = "bodyreq_"+r.id;
-          nb.style.cssText = "display:block;width:100%;margin:6px 0 8px"; nb.textContent = "Hermes に本文を作らせる";
-          try{ if(localStorage.getItem(rk)){ nb.textContent = "依頼済み ✓"; nb.disabled = true; } }catch(e){}
+          nb.style.cssText = "display:block;width:100%;margin:6px 0 8px";
+          // 一度押したあとも何度でも頼める（2026-10-28 本人指摘と同じ考え方）
+          const paintBodyBtn = () => { let a=false; try{ a = !!localStorage.getItem(rk); }catch(e){}
+            nb.textContent = a ? "もう一度 Hermes に本文を作らせる" : "Hermes に本文を作らせる"; nb.disabled = false; };
+          paintBodyBtn();
           nb.onclick = async () => {
             nb.disabled = true; setBusy("依頼を送っています…");
             try{
               await api("/blocks/"+MEMO_PAGE+"/children", {method:"PATCH", body:JSON.stringify({children:[{"object":"block","type":"paragraph","paragraph":{"rich_text":[
                 {"type":"text","text":{"content":stamp()+" 端末から: 【本文を作って】「"+title+"」のカードの本文（要点・進めると・動く人・期限）を作ってください。"}}]}}]})});
               try{ localStorage.setItem(rk,"1"); }catch(e){}
-              nb.textContent = "依頼済み ✓"; setBusy("本文づくりの依頼を送りました");
+              paintBodyBtn(); setBusy("本文づくりの依頼を送りました");
             }catch(e){ nb.disabled = false; setBusy("送れませんでした。もう一度押してください。"); }
           };
           (gnote.parentNode ? gnote : gist).after(nb);
@@ -1137,8 +1143,10 @@ async function load(){
   head.insertAdjacentElement("afterend", s0);   // 日付のすぐ下（トップ画面）に置く
   (async () => {
     try{
-      const s = await api("/search", {method:"POST", body: JSON.stringify({query:"💴 残高・使用量", page_size:5})});
-      const pg = (s.results||[]).find(r => r.object === "page");
+      const s = await api("/search", {method:"POST", body: JSON.stringify({query:"💴 残高・使用量", page_size:10})});
+      // 検索は名前の近い別ページ（タスクなど）を先に返すことがある。名前に「残高・使用量」を含むページだけを使う
+      const ptitle = r => { try{ const p = Object.values((r && r.properties) || {}).find(v => v && v.type === "title"); return txt(p); }catch(e){ return ""; } };
+      const pg = (s.results||[]).find(r => r.object === "page" && ptitle(r).includes("残高・使用量"));
       if(!pg){ s0.remove(); return; }
       const md = await api("/pages/" + pg.id.replace(/-/g,"") + "/markdown");
       // 「止まっています」「自動更新」の行は対応を求めない限り出さない
@@ -1474,32 +1482,37 @@ async function load(){
     const bq=$("button","act");
     const qkey = "asked_"+t.id;
     const qline = $("div","stat");
-    const markAsked = (msg, compact) => { bq.textContent="依頼済み ✓"; bq.disabled=true; bq.classList.add("done");
+    let asked = false; try{ asked = !!localStorage.getItem(qkey); }catch(e){}
+    // 一度押したあとも何度でも頼める（2026-10-28 本人指摘: 一度押すと二度と押せなくなるのを直す）
+    const markAsked = (msg, compact) => { bq.disabled=false; bq.classList.add("done"); bq.textContent="もう一度調べてもらう";
       if(compact){ qline.style.display="none"; return; }
       qline.textContent = msg || "送信を確認しました。Hermes が次回の確認で拾って、Discord でお返事します。";
       qline.style.display="block"; };
-    if(localStorage.getItem(qkey) && handled){
+    if(asked && handled){
       // 「調べました」は欄を増やさず、詳細ボタンの色で示す（場所を取らない）
-      markAsked("", true); bq.textContent="調べました ✓"; db.classList.add("done"); }
-    else if(localStorage.getItem(qkey)){ markAsked("送信済みです。Hermes が次の確認（1分ごと）で拾います。"); }
+      markAsked("", true); db.classList.add("done"); }
+    else if(asked){ markAsked("送信済みです。Hermes が次の確認（1分ごと）で拾います。"); }
     else { bq.textContent="調べてもらう"; }
     bq.onclick = async () => {
       bq.disabled=true; bq.textContent="送信中…"; bq.classList.remove("done"); setBusy("依頼を送っています…");
       const lineText = stamp()+" 端末から: 【調べてもらう】"+name+" について調べて、Discord で教えてください。";
       try{
-        await api("/blocks/"+MEMO_PAGE+"/children", {method:"PATCH", body:JSON.stringify({
+        const created = await api("/blocks/"+MEMO_PAGE+"/children", {method:"PATCH", body:JSON.stringify({
           children:[{"object":"block","type":"paragraph","paragraph":{"rich_text":[
             {"type":"text","text":{"content":lineText}}]}}]})});
-        // 送れたかどうかを、ページを読み直して確認する
-        const chk = await api("/blocks/"+MEMO_PAGE+"/children?page_size=100");
-        const ok = chk.results.some(x => x.type==="paragraph" &&
-          x.paragraph.rich_text.map(r=>r.plain_text).join("") === lineText);
+        // 送れたかどうかを、作られた段落そのものを読み返して確認する
+        //   （メモ欄は100件を超えるので、先頭100件を見る確認では新しく足した行が見つからない）
+        const bid = (created.results||[])[0] && created.results[0].id;
+        let ok = false;
+        if(bid){ const bb = await api("/blocks/"+bid);
+          ok = bb.type==="paragraph" && bb.paragraph.rich_text.map(r=>r.plain_text).join("") === lineText; }
         if(!ok) throw new Error("確認できませんでした");
         try{ localStorage.setItem(qkey,"1"); }catch(e){}
+        asked = true;
         markAsked();
         setBusy("依頼を送りました（送信を確認しました）");
       }catch(e){
-        bq.disabled=false; bq.textContent="調べてもらう"; bq.classList.remove("done");
+        bq.disabled=false; bq.textContent = asked ? "もう一度調べてもらう" : "調べてもらう"; bq.classList.remove("done");
         setBusy("送れませんでした。もう一度押してください。");
       }
     };
@@ -1769,40 +1782,62 @@ async function load(){
 
   if(uc) app.appendChild(uc);   // 更新情報は最下部
 
+  // 「まだ対応していないメモ」: 改善メモのページを（全ページ分）読み直し、「対応:」が続いていない行だけを出す。
+  // 以前は先頭100ブロックしか読まず、新しい行（ページの末尾）が見えなかった／段落以外（箇条書きなど）の「対応:」を見落としていた
   async function loadMemo(){
+    recent.innerHTML = '<div class="sub">未対応のメモを読み込み中…</div>';
     try{
-      const b = await api("/blocks/"+MEMO_PAGE+"/children?page_size=100");
-      const all = b.results.filter(x => x.type==="paragraph")
-        .map(x => x.paragraph.rich_text.map(r=>r.plain_text).join("").trim())
-        .filter(t => t);
-      const pending = [];
-      for(let i=0;i<all.length;i++){
-        if(/^\d{4}-\d{2}-\d{2}/.test(all[i])){
-          let handled = false;
-          for(let j=i+1;j<all.length;j++){
-            if(/^\d{4}-\d{2}-\d{2}/.test(all[j])) break;
-            if(all[j].replace(/^-\s*/,"").startsWith("対応:")){ handled = true; break; }
-          }
-          if(!handled) pending.push(all[i]);
+      let lines = [], cursor = null, pages = 0;
+      do{
+        const b = await api("/blocks/"+MEMO_PAGE+"/children?page_size=100"+(cursor ? "&start_cursor="+cursor : ""));
+        for(const x of (b.results||[])){
+          const rt = (x[x.type] && x[x.type].rich_text) || [];
+          const t = rt.map(r => r.plain_text).join("");
+          for(const ln of t.split(/\r?\n/)){ const s = ln.trim(); if(s) lines.push(s); }
         }
+        cursor = b.has_more ? b.next_cursor : null; pages++;
+      }while(cursor && pages < 30);
+      const isHandled = s => /^[-・*\s]*対応[:：]/.test(s);
+      const pending = [];
+      for(let i=0;i<lines.length;i++){
+        if(!/^\d{4}-\d{2}-\d{2}/.test(lines[i])) continue;
+        let handled = false;
+        for(let j=i+1;j<lines.length;j++){
+          if(/^\d{4}-\d{2}-\d{2}/.test(lines[j])) break;
+          if(isHandled(lines[j])){ handled = true; break; }
+        }
+        if(!handled) pending.push(lines[i]);
       }
-      const last = pending.slice(-4).reverse();
-      recent.innerHTML = last.length
-        ? "<h4>まだ対応していないメモ</h4>" + last.map(t => "<div>・"+esc(t)+"</div>").join("")
+      // 送った直後で、まだ読み直しに出てこない行は「反映待ち」として出す（出てきたら消す）
+      _sentMemo = _sentMemo.filter(s => !lines.includes(s));
+      const shown = pending.slice(-8).reverse();
+      let html = "";
+      for(const s of _sentMemo) html += '<div>・'+esc(s)+' <b>（送信直後・反映待ち）</b></div>';
+      for(const s of shown) html += '<div>・'+esc(s)+'</div>';
+      recent.innerHTML = html
+        ? "<h4>まだ対応していないメモ</h4>" + html
         : '<div class="sub">未対応のメモはありません。対応済みは Notion の「🔧 アプリの改善メモ」に残っています。</div>';
-    }catch(e){ recent.innerHTML = ""; }
+    }catch(e){
+      recent.innerHTML = '<div class="noway">未対応のメモを取得できませんでした（'+esc(e.message||String(e))+'）。通信を確かめて、上の「更新」を押してください。</div>';
+    }
   }
   fsend.onclick = async () => {
     const v = ftext.value.trim();
     if(!v){ setBusy("内容を書いてください"); ftext.focus(); return; }
     fsend.disabled = true; setBusy("送信中…");
+    const line = stamp()+" 端末から: "+v;
     try{
       await api("/blocks/"+MEMO_PAGE+"/children", {method:"PATCH", body:JSON.stringify({
         children:[{"object":"block","type":"paragraph","paragraph":{"rich_text":[
-          {"type":"text","text":{"content":stamp()+" 端末から: "+v}}]}}]})});
-      ftext.value = ""; try{ localStorage.removeItem("draft_memo"); }catch(e){}
+          {"type":"text","text":{"content":line}}]}}]})});
+      ftext.value = ""; try{ localStorage.removeItem("draft_memo"); }catch(e){}   // 送れたときだけ入力を消す
+      _sentMemo.push(line);
+      recent.innerHTML = '<h4>まだ対応していないメモ</h4><div>・'+esc("送信しました: "+v)+'（未対応）</div>';   // その場で1行出す
       setBusy("送りました"); loadMemo();
-    }catch(e){ setBusy("失敗: "+e.message); }
+    }catch(e){
+      recent.innerHTML = '<div class="noway">送信に失敗しました（'+esc(e.message||String(e))+'）。入力は消していません。もう一度「送信」を押してください。</div>';
+      setBusy("失敗: "+e.message);
+    }
     fsend.disabled = false;
   };
   loadMemo();
