@@ -345,6 +345,34 @@ function detailHtml(blocks){
   return html || blocksToHtml(blocks);
 }
 
+// 詳細が空のとき「Hermes に詳細を作らせる」ボタンを作る。押すと改善メモに依頼を1行足し、「依頼済み ✓」になる
+function detailRequestButton(name, id){
+  const nb = document.createElement("button"); nb.className = "act"; nb.style.cssText = "display:block;width:100%;margin:8px 0";
+  const rk = "detailreq_"+id;
+  nb.textContent = "Hermes に詳細を作らせる";
+  try{ if(localStorage.getItem(rk)){ nb.textContent = "依頼済み ✓"; nb.disabled = true; } }catch(e){}
+  nb.onclick = async (ev) => {
+    ev.stopPropagation(); nb.disabled = true; setBusy("依頼を送っています…");
+    try{
+      await api("/blocks/"+MEMO_PAGE+"/children", {method:"PATCH", body:JSON.stringify({children:[{"object":"block","type":"paragraph","paragraph":{"rich_text":[
+        {"type":"text","text":{"content":stamp()+" 端末から: 【詳細を作って】「"+name+"」の詳細（何をする件か・次にやること）を作ってください。"}}]}}]})});
+      try{ localStorage.setItem(rk,"1"); }catch(e){}
+      nb.textContent = "依頼済み ✓"; setBusy("詳細づくりの依頼を送りました");
+    }catch(e){ nb.disabled = false; setBusy("送れませんでした。もう一度押してください。"); }
+  };
+  return nb;
+}
+// 提案ページの本文から「要点・変わること・動く人」の行を引用の形で取り出す
+function quoteFromBlocks(blocks){
+  let out = "";
+  for(const b of (blocks||[])){
+    for(const ln of blockText(b).split(/\r?\n/)){
+      const m = ln.trim().replace(/^[-*・\s]+/,"").match(/^(要点|変わること|動く人)[:：]\s*(.+)/);
+      if(m) out += "<div><b>"+(m[1] === "変わること" ? "進めると" : m[1])+": </b>"+esc(m[2].trim())+"</div>";
+    }
+  }
+  return out;
+}
 // 改善メモに送った直後の行（読み直しに出てくるまで「反映待ち」として見せる）
 let _sentMemo = [];
 // 「詳細を開く」は1つずつ開く。いま開いている詳細を覚えておき、別の詳細を開くときに閉じる
@@ -1148,7 +1176,7 @@ async function load(){
   //   本人の要望 2026-10-28: 残高をいちばん上で見えるようにする
   const s0 = $("div","balbar");
   s0.innerHTML = '<span class="balkey">AI利用の前払い残高</span><span class="balval" id="balance-line">読み込み中…</span>';
-  s0.title = "秘書がAIを使うために前払いしたお金の残りです（あなたの操作は不要。1,000円を切ったら Discord で知らせます）";
+  s0.title = "秘書がAIを使うために前払いしたお金の残りです（あなたの操作は不要）";
   head.insertAdjacentElement("afterend", s0);   // 日付のすぐ下（トップ画面）に置く
   (async () => {
     try{
@@ -1168,7 +1196,7 @@ async function load(){
       const usd = (balLine.match(/\$([\d.,]+)/)||[])[1] || "";
       s0.querySelector("#balance-line").textContent = (yen ? "約"+yen+"円" : balLine) + (usd ? "（$"+usd+"）" : "");
       const use = lines.find(x => /使った|累計|クレジット/.test(x));
-      s0.title = "秘書がAIを使うために前払いしたお金の残りです（あなたの操作は不要。1,000円を切ったら Discord で知らせます）" + (use ? "　" + use : "");
+      s0.title = "秘書がAIを使うために前払いしたお金の残りです（あなたの操作は不要）" + (use ? "　" + use : "");
       if(yen && parseFloat(yen.replace(/,/g,"")) < 1000) s0.classList.add("low");   // しきい値を下回ったら赤く出す
     }catch(e){ s0.remove(); }
   })();
@@ -1416,6 +1444,10 @@ async function load(){
     card.appendChild(top);
     const tt=$("div","title"); tt.textContent = name; card.appendChild(tt);
     paintTop();   // 題名ができたので、期限切れ・今日なら題名も赤にする
+    // メモの1行目を既定で出す（詳細を開かなくても中身の当たりが分かるように）
+    { const fl1 = (readableText(memo) || "").split(/\r?\n/).map(s => s.trim()).find(Boolean);
+      if(fl1){ const ml = $("div"); ml.style.cssText = "font-size:13.5px;line-height:1.6;color:var(--ink);margin:2px 0 8px";
+        ml.textContent = fl1.length > 80 ? fl1.slice(0,80)+"…" : fl1; card.appendChild(ml); } }
     // やり方（手順）が分かっているタスクは、押すと手順だけ開けるボタンを出す（本人要望 2026-10-28）
     const howto = howtoText(memo);
     if(howto){
@@ -1453,7 +1485,32 @@ async function load(){
               if(um) head += '<div class="cnow"><div class="clabel">あなたのメモ</div>'+esc(readableText(um))+'</div>';
               dhtml = head + dhtml;
             }
-            detail.innerHTML = dhtml || '<div class="sub">このタスクにはまだ詳細がありません（結果は Discord の該当メッセージにあります）。</div>';
+            const hasMemo = !!dhtml;   // メモ＋ページ本文があるか（下の項目表は含めない）
+            // 同じ題名の「確認・提案」カードがあれば、その要点・進めると・動く人を引用する
+            const nk = s => (s||"").replace(/^#\S+\s*/,"").replace(/【[^】]*】/g,"").replace(/\s/g,"");
+            const rv = review.find(x => nk(txt(x.properties["件名"])) === nk(name));
+            let quote = "";
+            if(rv){
+              try{
+                const rb = await api("/blocks/"+rv.id+"/children?page_size=50");
+                quote = quoteFromBlocks(rb.results);
+                const rp = txt(rv.properties["Hermes の対応"]);
+                if(rp) quote += "<div><b>Hermes の対応: </b>"+esc(rp)+"</div>";
+              }catch(e){}
+              if(quote) quote = '<div class="cnow"><div class="clabel">同じ題名の提案から</div>'+quote+'</div>';
+            }
+            // 項目（ラベル付きで1行ずつ。空の項目は出さない）
+            let facts = "";
+            for(const k of ["期限","状態","優先度","領域","待ち相手","登録元"]){
+              const v = String(txt(t.properties[k]) || "").trim();
+              if(v) facts += "<div><b>"+k+": </b>"+esc(v)+"</div>";
+            }
+            if(facts) facts = '<div class="cnow">'+facts+'</div>';
+            detail.innerHTML = dhtml + quote + facts;
+            if(!hasMemo && !quote){
+              const e1 = document.createElement("div"); e1.className = "sub"; e1.textContent = "詳細はまだありません。";
+              detail.appendChild(e1); detail.appendChild(detailRequestButton(name, t.id));
+            }
           }catch(e){ detail.innerHTML = '<div class="sub">詳細を読み込めませんでした。</div>'; }
           detail.dataset.loaded="1"; db.disabled = false; setBusy("");
         }
@@ -1495,7 +1552,7 @@ async function load(){
     // 一度押したあとも何度でも頼める（2026-10-28 本人指摘: 一度押すと二度と押せなくなるのを直す）
     const markAsked = (msg, compact) => { bq.disabled=false; bq.classList.add("done"); bq.textContent="もう一度調べてもらう";
       if(compact){ qline.style.display="none"; return; }
-      qline.textContent = msg || "送信を確認しました。Hermes が次回の確認で拾って、Discord でお返事します。";
+      qline.textContent = msg || "送信を確認しました。Hermes が次回の確認で拾って、結果をこのアプリの詳細に出します。";
       qline.style.display="block"; };
     if(asked && handled){
       // 「調べました」は欄を増やさず、詳細ボタンの色で示す（場所を取らない）
@@ -1504,7 +1561,7 @@ async function load(){
     else { bq.textContent="調べてもらう"; }
     bq.onclick = async () => {
       bq.disabled=true; bq.textContent="送信中…"; bq.classList.remove("done"); setBusy("依頼を送っています…");
-      const lineText = stamp()+" 端末から: 【調べてもらう】"+name+" について調べて、Discord で教えてください。";
+      const lineText = stamp()+" 端末から: 【調べてもらう】"+name+" について調べて、結果をこのアプリの詳細に書いてください。";
       try{
         const created = await api("/blocks/"+MEMO_PAGE+"/children", {method:"PATCH", body:JSON.stringify({
           children:[{"object":"block","type":"paragraph","paragraph":{"rich_text":[
@@ -1776,7 +1833,11 @@ async function load(){
               const bb = await api("/blocks/"+h.id+"/children?page_size=50");
               let html = detailHtml(bb.results);
               if(h.note) html = '<div class="cnow">対応: '+esc(h.note)+'</div>' + html;
-              bd.innerHTML = html || '<div class="sub">中身はありません（結果は Discord の該当メッセージにあります）。</div>';
+              if(html){ bd.innerHTML = html; }
+              else{
+                bd.innerHTML = '<div class="sub">詳細はまだありません。</div>';
+                bd.appendChild(detailRequestButton(h.title, h.id));
+              }
             }catch(e){ bd.innerHTML = '<div class="sub">中身を読み込めませんでした。</div>'; }
             bd.dataset.loaded = "1";
           }

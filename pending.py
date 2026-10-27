@@ -105,11 +105,13 @@ def main():
                                        f"手順は /workspace/records/style/好み回答の処理手順.md を読んで従う。")
     for r in query(h, TASKS_DS):
         p = r["properties"]
-        if txt(p.get("状態")) == "完了" and txt(p.get("完了日")) == today:
-            items["task:" + r["id"]] = f"タスクの完了: 「{txt(p.get('名前'))[:50]}」"
         # タスクのコメント（メモ欄）は Hermes が読んで対応する（本人指示 2026-10-27）。
         # 対応したらメモに `対応: YYYY-MM-DD` を書く。書くまで何度でも拾う。
+        #   完了の受け取りも同じ印で消し込む（書かないと、完了日が今日である限り
+        #   何度でも「タスクの完了」として出てきて、同じ報告を繰り返す）。
         memo = txt(p.get("メモ")).strip()
+        if txt(p.get("状態")) == "完了" and txt(p.get("完了日")) == today and "対応:" not in memo:
+            items["task:" + r["id"]] = f"タスクの完了: 「{txt(p.get('名前'))[:50]}」"
         if txt(p.get("状態")) != "完了" and memo and "対応:" not in memo:
             items["tcmt:" + r["id"]] = (f"タスクへのコメント: 「{txt(p.get('名前'))[:50]}」"
                                         f"→ メモ: {memo[:160]}")
